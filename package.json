@@ -1,0 +1,14 @@
+{
+  "name": "razorpay-revenue-recovery",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npx nodemon index.js",
+    "client": "cd client && npm run dev",
+    "setup-db": "cd server && node db/setup.js",
+    "seed": "cd server && node db/seed.js",
+    "init": "npm run setup-db && npm run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
