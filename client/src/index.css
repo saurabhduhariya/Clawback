@@ -5,24 +5,16 @@
   --color-deep: #000000;
   --color-base: #09090b;
   --color-surface: #18181b;
-  
   --color-glass: rgba(24, 24, 27, 0.4);
   --color-glass-hover: rgba(24, 24, 27, 0.8);
   --color-border-glass: rgba(255, 255, 255, 0.05);
   --color-border-glass-hover: rgba(255, 255, 255, 0.2);
-  
   --color-txt-primary: #ffffff;
   --color-txt-secondary: #a1a1aa;
   --color-txt-muted: #52525b;
-  
-  --color-accent-blue: #ffffff;
-  --color-accent-purple: #e4e4e7;
-  --color-accent-cyan: #d4d4d8;
   --color-accent-green: #10b981;
   --color-accent-red: #ef4444;
   --color-accent-orange: #f59e0b;
-  --color-accent-pink: #ec4899;
-  
   --font-sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
@@ -39,7 +31,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: linear-gradient(to right, rgba(128, 128, 128, 0.07) 1px, transparent 1px), 
+  background-image: linear-gradient(to right, rgba(128, 128, 128, 0.07) 1px, transparent 1px),
                     linear-gradient(to bottom, rgba(128, 128, 128, 0.07) 1px, transparent 1px);
   background-size: 24px 24px;
   pointer-events: none;
@@ -48,9 +40,10 @@ body::before {
 
 #root { position: relative; z-index: 1; }
 
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 
 .glass {
   background: var(--color-glass);
@@ -60,11 +53,22 @@ body::before {
 }
 .glass:hover { border-color: var(--color-border-glass-hover); }
 
-.badge-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  animation: pulse 2s ease-in-out infinite;
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
+.skeleton {
+  background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+.skeleton-text { height: 14px; margin-bottom: 8px; }
+.skeleton-title { height: 32px; width: 60%; margin-bottom: 12px; }
+.skeleton-card { height: 140px; border-radius: 16px; }
+.skeleton-chart { height: 280px; border-radius: 16px; }
+
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .progress-fill {
@@ -74,21 +78,8 @@ body::before {
   transition: width 0.5s ease;
 }
 
-.timeline-line {
-  position: absolute;
-  left: 8px; top: 0; bottom: 0;
-  width: 2px;
-  background: #27272a;
-  border-radius: 2px;
-}
-
-.timeline-dot {
-  position: absolute;
-  left: -26px; top: 18px;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  border: 2px solid var(--color-deep);
-}
+.timeline-line { position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #27272a; border-radius: 2px; }
+.timeline-dot { position: absolute; left: -26px; top: 18px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--color-deep); }
 
 .recharts-default-tooltip {
   background: rgba(9, 9, 11, 0.95) !important;
@@ -99,11 +90,7 @@ body::before {
 .recharts-tooltip-item { color: var(--color-txt-primary) !important; font-size: 0.85rem !important; }
 .recharts-tooltip-label { color: var(--color-txt-secondary) !important; }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 .animate-in { animation: fadeInUp 0.5s ease forwards; }
 .stagger-1 { animation-delay: 0.05s; }
 .stagger-2 { animation-delay: 0.1s; }
@@ -118,12 +105,13 @@ body::before {
   background-position: right 10px center;
 }
 
-.spinner {
-  display: inline-block;
-  width: 18px; height: 18px;
-  border: 2px solid rgba(255,255,255,0.1);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
 @keyframes spin { to { transform: rotate(360deg); } }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+
+.terminal-log { font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.6; color: #a1a1aa; overflow-y: auto; max-height: 300px; }
+.terminal-log .log-success { color: #10b981; }
+.terminal-log .log-error { color: #ef4444; }
+.terminal-log .log-info { color: #a1a1aa; }
+.terminal-log .log-highlight { color: #ffffff; font-weight: 600; }
+
+*:focus-visible { outline: 2px solid rgba(255,255,255,0.3); outline-offset: 2px; border-radius: 4px; }

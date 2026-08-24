@@ -70,19 +70,46 @@ function InteractiveBackground() {
 }
 
 /* ─── Animated Stat Counter ─── */
+function useCountUp(target, duration = 1200) {
+  const [value, setValue] = useState(0);
+  const ref = useRef(null);
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    if (!started || target === 0) return;
+    const numTarget = parseFloat(target);
+    if (isNaN(numTarget)) { setValue(target); return; }
+    const start = performance.now();
+    const animate = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(numTarget * eased * 10) / 10);
+      if (progress < 1) ref.current = requestAnimationFrame(animate);
+    };
+    ref.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(ref.current);
+  }, [target, duration, started]);
+  return [value, setStarted];
+}
+
 function StatCard({ value, label, delay = 0 }) {
+  const numericPart = parseFloat(value);
+  const suffix = value.toString().replace(/[0-9.]/g, '');
+  const [count, setStarted] = useCountUp(numericPart, 1200);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 + delay }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: 0.2 + delay }}
+      onViewportEnter={() => setStarted(true)}
       className="text-center h-full"
     >
       <motion.div
-        whileHover={{ scale: 1.05 }}
-        className="bg-zinc-900/50 rounded-xl p-6 backdrop-blur-lg border border-white/10 transition-colors hover:border-white/20 h-full flex flex-col justify-center"
+        whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.2)' }}
+        className="bg-zinc-900/50 rounded-xl p-6 backdrop-blur-lg border border-white/10 transition-colors h-full flex flex-col justify-center"
       >
-        <div className="text-2xl md:text-3xl font-bold mb-2">{value}</div>
+        <div className="text-2xl md:text-3xl font-bold mb-2 text-white">{isNaN(numericPart) ? value : count + suffix}</div>
         <div className="text-sm text-zinc-400">{label}</div>
       </motion.div>
     </motion.div>
@@ -225,7 +252,7 @@ export default function Landing() {
                       <span className="text-zinc-500">▸</span> LAUNCH DASHBOARD
                     </Link>
                   </motion.div>
-                  <a href="#how-it-works"
+                  <a href="#how-it-works" onClick={(e) => { e.preventDefault(); document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" }); }}
                     className="bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 px-8 py-3.5 rounded-lg text-[11px] sm:text-xs font-bold tracking-[0.15em] uppercase transition-all inline-flex items-center gap-2 shadow-sm">
                     <span className="text-zinc-500">▸</span> SEE HOW IT WORKS
                   </a>
