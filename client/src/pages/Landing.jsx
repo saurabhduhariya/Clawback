@@ -1,3 +1,4 @@
+import { Search, BrainCircuit, ShieldCheck, Zap, BarChart3, ClipboardList, BarChart2, CheckCircle2, TrendingUp, Network } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
@@ -13,7 +14,7 @@ function InteractiveBackground() {
     if (!ctx) return;
 
     let animId;
-    let mouseX = 0, mouseY = 0;
+    let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
     const particles = [];
 
     class Particle {
@@ -30,8 +31,10 @@ function InteractiveBackground() {
       update() {
         this.x += this.speedX + (mouseX - canvas.width / 2) * 0.005;
         this.y += this.speedY + (mouseY - canvas.height / 2) * 0.005;
-        if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
-        if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+        if (this.x < 0) { this.x = 0; this.speedX *= -1; }
+        else if (this.x > canvas.width) { this.x = canvas.width; this.speedX *= -1; }
+        if (this.y < 0) { this.y = 0; this.speedY *= -1; }
+        else if (this.y > canvas.height) { this.y = canvas.height; this.speedY *= -1; }
       }
       draw() {
         ctx.fillStyle = this.color;
@@ -67,20 +70,19 @@ function InteractiveBackground() {
 }
 
 /* ─── Animated Stat Counter ─── */
-function StatCard({ icon, value, label, delay = 0 }) {
+function StatCard({ value, label, delay = 0 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 + delay }}
-      className="text-center"
+      className="text-center h-full"
     >
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-zinc-900/50 rounded-xl p-6 backdrop-blur-lg border border-white/10 transition-colors hover:border-white/20"
+        className="bg-zinc-900/50 rounded-xl p-6 backdrop-blur-lg border border-white/10 transition-colors hover:border-white/20 h-full flex flex-col justify-center"
       >
-        <div className="mb-2 text-white/70 flex justify-center text-2xl">{icon}</div>
-        <div className="text-2xl md:text-3xl font-bold mb-1">{value}</div>
+        <div className="text-2xl md:text-3xl font-bold mb-2">{value}</div>
         <div className="text-sm text-zinc-400">{label}</div>
       </motion.div>
     </motion.div>
@@ -89,21 +91,27 @@ function StatCard({ icon, value, label, delay = 0 }) {
 
 /* ─── Feature Card ─── */
 function FeatureCard({ icon, title, desc, index }) {
+  const num = `0${index + 1}`;
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
+      whileHover={{ y: -5 }}
+      className="relative group bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-8 border border-white/5 overflow-hidden transition-all hover:bg-zinc-900/80 hover:border-white/20 shadow-2xl h-full flex flex-col"
     >
-      <motion.div
-        whileHover={{ scale: 1.02, borderColor: 'rgba(255,255,255,0.2)' }}
-        className="bg-zinc-900/50 backdrop-blur-lg border border-white/10 rounded-xl p-6 h-full transition-colors"
-      >
-        <div className="text-3xl mb-4">{icon}</div>
-        <h3 className="text-base font-semibold mb-2">{title}</h3>
+      <div className="absolute -right-2 -top-6 text-9xl font-black text-white/5 group-hover:text-white/10 transition-colors pointer-events-none select-none">
+        {num}
+      </div>
+      <div className="relative z-10 flex-1">
+        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white text-xl mb-6 border border-white/10 group-hover:bg-white/20 transition-colors">
+          {icon}
+        </div>
+        <h3 className="text-xl font-bold mb-3 text-white">{title}</h3>
         <p className="text-sm text-zinc-400 leading-relaxed">{desc}</p>
-      </motion.div>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
     </motion.div>
   );
 }
@@ -117,12 +125,12 @@ export default function Landing() {
   const [isHovered, setIsHovered] = useState(false);
 
   const features = [
-    { icon: '🔍', title: 'Auto-Detection', desc: 'Continuously monitors your Razorpay transactions — catches failed payments, abandoned checkouts, and overdue invoices automatically.' },
-    { icon: '🧠', title: 'AI Root-Cause Diagnosis', desc: 'Gemini AI analyzes each failure — determines if retryable, urgency level, and the optimal recovery action to take.' },
-    { icon: '🛡️', title: 'Smart Guardrails', desc: 'Prevents over-contacting customers with max retry limits, cooldown timers, and non-retryable failure detection.' },
-    { icon: '⚡', title: 'One-Click Recovery', desc: 'Creates real Razorpay payment links, invoices, and retry orders through live API calls in test mode.' },
-    { icon: '📊', title: 'Recovery Analytics', desc: 'Real-time dashboard with charts showing recovery rates by type, action effectiveness, and run history.' },
-    { icon: '📋', title: 'Full Audit Trail', desc: 'Every AI decision, API call, and customer outcome logged with complete explainability for each transaction.' },
+    { icon: <Search className="w-5 h-5" />, title: 'Auto-Detection', desc: 'Continuously monitors your Razorpay transactions — catches failed payments, abandoned checkouts, and overdue invoices automatically.' },
+    { icon: <BrainCircuit className="w-5 h-5" />, title: 'AI Root-Cause Diagnosis', desc: 'Gemini AI analyzes each failure — determines if retryable, urgency level, and the optimal recovery action to take.' },
+    { icon: <ShieldCheck className="w-5 h-5" />, title: 'Smart Guardrails', desc: 'Prevents over-contacting customers with max retry limits, cooldown timers, and non-retryable failure detection.' },
+    { icon: <Zap className="w-5 h-5" />, title: 'One-Click Recovery', desc: 'Creates real Razorpay payment links, invoices, and retry orders through live API calls in test mode.' },
+    { icon: <BarChart3 className="w-5 h-5" />, title: 'Recovery Analytics', desc: 'Real-time dashboard with charts showing recovery rates by type, action effectiveness, and run history.' },
+    { icon: <ClipboardList className="w-5 h-5" />, title: 'Full Audit Trail', desc: 'Every AI decision, API call, and customer outcome logged with complete explainability for each transaction.' },
   ];
 
   const steps = [
@@ -149,16 +157,15 @@ export default function Landing() {
 
       <div className="relative z-10">
         {/* ─── HEADER ─── */}
-        <header className="w-full py-0 px-6 sticky top-0 z-50 bg-black/60 backdrop-blur-xl border-b border-white/5 h-16 flex items-center">
+        <header className="w-full py-0 px-6 fixed top-0 z-50 bg-transparent h-16 flex items-center">
           <div className="w-full max-w-7xl mx-auto flex items-center justify-between relative">
             
-            {/* Left: Logo */}
-            <div className="flex items-center gap-2.5 z-10">
-              <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center text-black text-sm font-bold">⚡</div>
-              <span className="text-lg font-semibold text-white tracking-tight">RecoverAI</span>
+            {/* Left: Brand */}
+            <div className="flex items-center z-10">
+              <span className="text-lg font-bold text-zinc-200 tracking-tight">RecoverAI</span>
             </div>
             
-            {/* Center: Pill Navigation */}
+            {/* Center: Navigation without badge */}
             <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 px-1.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
               {["Features", "How It Works"].map(n => (
                 <a key={n} href={`#${n.toLowerCase().replace(/\s/g, "-")}`}
@@ -169,10 +176,7 @@ export default function Landing() {
             </nav>
             
             {/* Right: Actions */}
-            <div className="flex items-center gap-6 z-10">
-              <span className="hidden sm:flex text-[10px] sm:text-[11px] font-bold tracking-[0.15em] text-zinc-400 hover:text-white transition-colors cursor-pointer items-center gap-1.5">
-                <span className="text-zinc-600 text-xs">▸</span> LOGIN <span className="text-zinc-600 text-xs">◂</span>
-              </span>
+            <div className="flex items-center z-10">
               <Link to="/dashboard"
                 className="bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 px-5 py-2.5 rounded-lg text-[10px] sm:text-[11px] font-bold tracking-[0.15em] transition-all flex items-center gap-2 shadow-sm">
                 <span className="text-zinc-500 text-xs">▸</span> OPEN DASHBOARD
@@ -186,7 +190,7 @@ export default function Landing() {
         <section ref={heroRef} className="min-h-screen relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-zinc-900/50 to-black" />
 
-          <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative pt-32 pb-16 px-4">
+          <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative pt-48 pb-16 px-4">
             <div className="max-w-7xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -194,15 +198,7 @@ export default function Landing() {
                 transition={{ duration: 0.8 }}
                 className="text-center mb-16"
               >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-zinc-300 mb-8 backdrop-blur-lg"
-                >
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  Built for Razorpay Buildathon 2026
-                </motion.div>
+
 
                 <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold mb-6 tracking-tight relative">
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-500">
@@ -224,44 +220,31 @@ export default function Landing() {
                 <div className="flex gap-4 justify-center flex-wrap">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Link to="/dashboard"
-                      className="bg-white text-black hover:bg-zinc-200 text-base px-8 py-3 rounded-full font-medium transition-colors inline-flex items-center gap-2 shadow-xl relative overflow-hidden group"
-                      onMouseEnter={() => setIsHovered(true)}
-                      onMouseLeave={() => setIsHovered(false)}
+                      className="bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 px-8 py-3.5 rounded-lg text-[11px] sm:text-xs font-bold tracking-[0.15em] uppercase transition-all inline-flex items-center gap-2 shadow-sm"
                     >
-                      <span className="relative z-10">Launch Dashboard</span>
-                      <motion.span
-                        className="absolute inset-0 bg-gradient-to-r from-zinc-200 to-white"
-                        initial={{ x: '100%' }}
-                        animate={{ x: isHovered ? '0%' : '100%' }}
-                        transition={{ duration: 0.3 }}
-                      />
-                      <motion.span
-                        animate={{ x: isHovered ? 5 : 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="relative z-10"
-                      >→</motion.span>
+                      <span className="text-zinc-500">▸</span> LAUNCH DASHBOARD
                     </Link>
                   </motion.div>
                   <a href="#how-it-works"
-                    className="border border-white/10 bg-white/5 hover:bg-white/10 text-base px-8 py-3 rounded-full font-medium transition-colors backdrop-blur-lg">
-                    See How It Works
+                    className="bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 px-8 py-3.5 rounded-lg text-[11px] sm:text-xs font-bold tracking-[0.15em] uppercase transition-all inline-flex items-center gap-2 shadow-sm">
+                    <span className="text-zinc-500">▸</span> SEE HOW IT WORKS
                   </a>
                 </div>
               </motion.div>
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-                <StatCard icon="📊" value="120+" label="Transactions Monitored" delay={0} />
-                <StatCard icon="✅" value="36" label="Payments Recovered" delay={0.1} />
-                <StatCard icon="📈" value="26.6%" label="Recovery Rate" delay={0.2} />
-                <StatCard icon="🔗" value="7" label="LangGraph Nodes" delay={0.3} />
+                <StatCard icon={<BarChart2 className="w-6 h-6 text-zinc-400" />} value="120+" label="Transactions Monitored" delay={0} />
+                <StatCard icon={<CheckCircle2 className="w-6 h-6 text-zinc-400" />} value="36" label="Payments Recovered" delay={0.1} />
+                <StatCard icon={<TrendingUp className="w-6 h-6 text-zinc-400" />} value="26.6%" label="Recovery Rate" delay={0.2} />
+                <StatCard icon={<Network className="w-6 h-6 text-zinc-400" />} value="7" label="LangGraph Nodes" delay={0.3} />
               </div>
             </div>
           </motion.div>
         </section>
 
         {/* ─── FEATURES ─── */}
-        <section id="features" className="py-24 relative">
+        <section id="features" className="pt-32 pb-24 relative">
           <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-900/30 to-black" />
           <motion.div
             variants={containerVariants}
@@ -315,7 +298,7 @@ export default function Landing() {
                     whileHover={{ borderColor: 'rgba(255,255,255,0.2)' }}
                     className="flex-1 bg-black/50 backdrop-blur-lg rounded-xl p-6 border border-white/10 transition-colors"
                   >
-                    <h3 className="text-base font-semibold mb-1">{s.title}</h3>
+                    <h3 className="text-base font-semibold mb-1 text-white">{s.title}</h3>
                     <p className="text-sm text-zinc-400 leading-relaxed">{s.desc}</p>
                   </motion.div>
                 </motion.div>
@@ -344,9 +327,9 @@ export default function Landing() {
             </p>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link to="/dashboard"
-                className="bg-white text-black hover:bg-zinc-200 text-base px-8 py-3 rounded-full font-medium shadow-xl transition-colors inline-flex items-center gap-2">
-                🚀 Open Dashboard
-                <span>→</span>
+                className="bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 px-8 py-3.5 rounded-lg text-[11px] sm:text-xs font-bold tracking-[0.15em] uppercase transition-all inline-flex items-center gap-2 shadow-sm justify-center"
+              >
+                <span className="text-zinc-500">▸</span> OPEN DASHBOARD
               </Link>
             </motion.div>
           </motion.div>
@@ -357,7 +340,7 @@ export default function Landing() {
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-black text-[10px] font-bold">⚡</div>
+                
                 <span className="font-semibold text-sm">RecoverAI</span>
                 <span className="text-zinc-500 text-sm">— Built for Razorpay Buildathon 2026</span>
               </div>

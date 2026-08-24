@@ -1,24 +1,28 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-deep: #050510;
-  --color-base: #0a0a1a;
-  --color-surface: #0f0f23;
-  --color-glass: rgba(255, 255, 255, 0.03);
-  --color-glass-hover: rgba(255, 255, 255, 0.06);
-  --color-border-glass: rgba(255, 255, 255, 0.08);
-  --color-border-glass-hover: rgba(255, 255, 255, 0.15);
-  --color-txt-primary: #f0f0ff;
-  --color-txt-secondary: #8888aa;
-  --color-txt-muted: #555577;
-  --color-accent-blue: #4f7df5;
-  --color-accent-purple: #8b5cf6;
-  --color-accent-cyan: #06d6a0;
+  --color-deep: #000000;
+  --color-base: #09090b;
+  --color-surface: #18181b;
+  
+  --color-glass: rgba(24, 24, 27, 0.4);
+  --color-glass-hover: rgba(24, 24, 27, 0.8);
+  --color-border-glass: rgba(255, 255, 255, 0.05);
+  --color-border-glass-hover: rgba(255, 255, 255, 0.2);
+  
+  --color-txt-primary: #ffffff;
+  --color-txt-secondary: #a1a1aa;
+  --color-txt-muted: #52525b;
+  
+  --color-accent-blue: #ffffff;
+  --color-accent-purple: #e4e4e7;
+  --color-accent-cyan: #d4d4d8;
   --color-accent-green: #10b981;
   --color-accent-red: #ef4444;
   --color-accent-orange: #f59e0b;
   --color-accent-pink: #ec4899;
+  
   --font-sans: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
@@ -27,18 +31,19 @@ body {
   font-family: var(--font-sans);
   background: var(--color-deep);
   color: var(--color-txt-primary);
+  overflow-x: hidden;
+  color-scheme: dark;
 }
 
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(79,125,245,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 80% at 90% 80%, rgba(139,92,246,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(6,214,160,0.03) 0%, transparent 60%);
+  background-image: linear-gradient(to right, rgba(128, 128, 128, 0.07) 1px, transparent 1px), 
+                    linear-gradient(to bottom, rgba(128, 128, 128, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 #root { position: relative; z-index: 1; }
@@ -53,7 +58,6 @@ body::before {
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--color-border-glass);
 }
-
 .glass:hover { border-color: var(--color-border-glass-hover); }
 
 .badge-dot {
@@ -61,22 +65,20 @@ body::before {
   border-radius: 50%;
   animation: pulse 2s ease-in-out infinite;
 }
-
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent-blue), var(--color-accent-cyan));
+  background: linear-gradient(90deg, #52525b, #ffffff);
   border-radius: 3px;
   transition: width 0.5s ease;
-  box-shadow: 0 0 12px rgba(6, 214, 160, 0.3);
 }
 
 .timeline-line {
   position: absolute;
   left: 8px; top: 0; bottom: 0;
   width: 2px;
-  background: linear-gradient(180deg, var(--color-accent-blue), var(--color-accent-purple), var(--color-accent-cyan));
+  background: #27272a;
   border-radius: 2px;
 }
 
@@ -88,27 +90,11 @@ body::before {
   border: 2px solid var(--color-deep);
 }
 
-.btn-gradient {
-  background: linear-gradient(135deg, var(--color-accent-blue), var(--color-accent-purple));
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-gradient::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, transparent, rgba(255,255,255,0.12));
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.btn-gradient:hover::before { opacity: 1; }
-
 .recharts-default-tooltip {
-  background: rgba(10,10,26,0.95) !important;
-  border: 1px solid var(--color-border-glass) !important;
+  background: rgba(9, 9, 11, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
   border-radius: 10px !important;
+  backdrop-filter: blur(8px);
 }
 .recharts-tooltip-item { color: var(--color-txt-primary) !important; font-size: 0.85rem !important; }
 .recharts-tooltip-label { color: var(--color-txt-secondary) !important; }
@@ -127,18 +113,17 @@ body::before {
 .filter-select {
   appearance: none;
   padding-right: 30px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .spinner {
   display: inline-block;
   width: 18px; height: 18px;
   border: 2px solid rgba(255,255,255,0.1);
-  border-top-color: var(--color-accent-blue);
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+@keyframes spin { to { transform: rotate(360deg); } }

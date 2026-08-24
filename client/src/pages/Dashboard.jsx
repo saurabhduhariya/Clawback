@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { BarChart as BarChartIcon, Wallet, CheckCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 
-const PIE_COLORS = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'];
+const PIE_COLORS = ['#ffffff', '#52525b', '#27272a'];
 const fmt = (p) => '₹' + (p / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
 const tooltipStyle = {
-  contentStyle: { background: 'rgba(10,10,26,0.95)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' },
-  labelStyle: { color: '#8888aa' },
+  contentStyle: { background: 'rgba(9, 9, 11, 0.95)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '10px', backdropFilter: 'blur(8px)' },
+  labelStyle: { color: '#a1a1aa' },
   cursor: { fill: 'rgba(255,255,255,0.03)' },
 };
 
@@ -22,14 +24,14 @@ export default function Dashboard() {
     api.getMetrics().then(setM).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center gap-3 py-20 text-txt-secondary"><span className="spinner" />Loading dashboard...</div>;
-  if (!m) return <div className="text-center py-20 text-txt-muted"><p className="text-4xl mb-4 opacity-50">📊</p><p>No data yet. Run a recovery first.</p></div>;
+  if (loading) return <div className="flex items-center justify-center gap-3 py-20 text-zinc-400"><span className="spinner" />Loading dashboard...</div>;
+  if (!m) return <div className="text-center py-20 text-zinc-500"><p className="flex justify-center mb-4 opacity-50"><BarChartIcon className="w-10 h-10" /></p><p>No data yet. Run a recovery first.</p></div>;
 
   const cards = [
-    { icon: '💰', label: 'Total At Risk', value: fmt(m.total_at_risk), sub: `${m.total_transactions} transactions`, color: 'blue' },
-    { icon: '✅', label: 'Recovered', value: fmt(m.total_recovered), sub: `${m.recovered_count} transactions`, color: 'green' },
-    { icon: '📈', label: 'Recovery Rate', value: `${m.recovery_rate}%`, sub: 'of total at-risk', color: 'purple' },
-    { icon: '⚠️', label: 'Unrecoverable', value: fmt(m.total_unrecoverable), sub: `${m.unrecoverable_count} transactions`, color: 'red' },
+    { icon: <Wallet className="w-5 h-5 text-white" />, label: 'Total At Risk', value: fmt(m.total_at_risk), sub: `${m.total_transactions} transactions` },
+    { icon: <CheckCircle className="w-5 h-5 text-emerald-400" />, label: 'Recovered', value: fmt(m.total_recovered), sub: `${m.recovered_count} transactions` },
+    { icon: <TrendingUp className="w-5 h-5 text-emerald-400" />, label: 'Recovery Rate', value: `${m.recovery_rate}%`, sub: 'of total at-risk' },
+    { icon: <AlertTriangle className="w-5 h-5 text-red-400" />, label: 'Unrecoverable', value: fmt(m.total_unrecoverable), sub: `${m.unrecoverable_count} transactions` },
   ];
 
   const barData = (m.by_type || []).map(t => ({
@@ -47,64 +49,55 @@ export default function Dashboard() {
     name: a.chosen_action.replace(/_/g, ' '), success: a.rate, total: a.total,
   }));
 
-  const gradients = {
-    blue: 'from-accent-blue/20 to-accent-cyan/5',
-    green: 'from-accent-green/20 to-accent-cyan/5',
-    purple: 'from-accent-purple/20 to-accent-pink/5',
-    red: 'from-accent-red/20 to-accent-orange/5',
-  };
-
-  const topBorders = {
-    blue: 'via-accent-blue to-accent-cyan',
-    green: 'via-accent-green to-accent-cyan',
-    purple: 'via-accent-purple to-accent-pink',
-    red: 'via-accent-red to-accent-orange',
-  };
-
   return (
-    <div className="px-6 py-8 max-w-[1440px] mx-auto">
-      <h1 className="text-2xl font-extrabold tracking-tight mb-1">Dashboard</h1>
-      <p className="text-txt-secondary text-sm mb-7">Revenue recovery intelligence at a glance</p>
+    <div className="px-6 py-8 max-w-[1440px] mx-auto relative z-10">
+      <h1 className="text-3xl font-bold mb-1 text-white">Dashboard</h1>
+      <p className="text-zinc-400 text-sm mb-7">Revenue recovery intelligence at a glance</p>
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6 max-lg:grid-cols-2 max-sm:grid-cols-1">
+      {/* Metric Cards - Bento Style */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {cards.map((c, i) => (
-          <div key={i} className={`animate-in stagger-${i+1} glass rounded-2xl p-5 relative overflow-hidden hover:-translate-y-1 transition-all duration-300 hover:shadow-[0_0_40px_rgba(79,125,245,0.08)]`}>
-            <div className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent ${topBorders[c.color]}`} />
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg mb-3 bg-gradient-to-br ${gradients[c.color]}`}>
-              {c.icon}
+          <div key={i} className={`animate-in stagger-${i+1} relative group bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5 overflow-hidden transition-all hover:bg-zinc-900/80 hover:border-white/20 shadow-2xl flex flex-col`}>
+            <div className="absolute -right-4 -top-8 text-9xl font-black text-white/5 group-hover:text-white/10 transition-colors pointer-events-none select-none">
+              0{i+1}
             </div>
-            <div className="text-[0.7rem] font-semibold text-txt-secondary uppercase tracking-wider mb-1">{c.label}</div>
-            <div className="text-2xl font-extrabold tracking-tight">{c.value}</div>
-            <div className="text-xs text-txt-muted mt-1">{c.sub}</div>
+            <div className="relative z-10">
+              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-xl mb-4 border border-white/10 group-hover:bg-white/20 transition-colors">
+                {c.icon}
+              </div>
+              <div className="text-[0.7rem] font-bold text-zinc-400 uppercase tracking-widest mb-1">{c.label}</div>
+              <div className="text-3xl font-extrabold tracking-tight text-white">{c.value}</div>
+              <div className="text-xs text-zinc-500 mt-2 font-medium">{c.sub}</div>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
           </div>
         ))}
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-2 gap-4 mb-6 max-lg:grid-cols-1">
-        <div className="glass rounded-2xl p-6 animate-in">
-          <h2 className="text-[0.7rem] font-semibold text-txt-secondary uppercase tracking-wider mb-5">Recovery by Type</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="relative group bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5 overflow-hidden transition-all hover:bg-zinc-900/80 hover:border-white/20 shadow-2xl animate-in stagger-3">
+          <h2 className="text-[0.75rem] font-bold text-zinc-400 uppercase tracking-widest mb-6">Recovery by Type</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={barData} barGap={4}>
-              <XAxis dataKey="name" tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} />
               <Tooltip {...tooltipStyle} />
-              <Bar dataKey="total" fill="#4f7df520" radius={[6,6,0,0]} name="Total" stroke="#4f7df5" strokeWidth={1} />
-              <Bar dataKey="recovered" fill="#10b98140" radius={[6,6,0,0]} name="Recovered" stroke="#10b981" strokeWidth={1} />
+              <Bar dataKey="total" fill="#27272a" radius={[6,6,0,0]} name="Total" />
+              <Bar dataKey="recovered" fill="#ffffff" radius={[6,6,0,0]} name="Recovered" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="glass rounded-2xl p-6 animate-in">
-          <h2 className="text-[0.7rem] font-semibold text-txt-secondary uppercase tracking-wider mb-5">Status Distribution</h2>
+        <div className="relative group bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5 overflow-hidden transition-all hover:bg-zinc-900/80 hover:border-white/20 shadow-2xl animate-in stagger-3">
+          <h2 className="text-[0.75rem] font-bold text-zinc-400 uppercase tracking-widest mb-6">Status Distribution</h2>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={65} outerRadius={100} paddingAngle={3} dataKey="value" stroke="none">
+              <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={2} dataKey="value" stroke="none">
                 {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: 'rgba(10,10,26,0.95)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }} />
-              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#8888aa' }} />
+              <Tooltip {...tooltipStyle} />
+              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#a1a1aa', fontWeight: 500 }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -112,15 +105,20 @@ export default function Dashboard() {
 
       {/* Action Effectiveness */}
       {actionData.length > 0 && (
-        <div className="glass rounded-2xl p-6 animate-in">
-          <h2 className="text-[0.7rem] font-semibold text-txt-secondary uppercase tracking-wider mb-5">Action Effectiveness</h2>
+        <div className="relative group bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5 overflow-hidden transition-all hover:bg-zinc-900/80 hover:border-white/20 shadow-2xl animate-in stagger-4">
+          <h2 className="text-[0.75rem] font-bold text-zinc-400 uppercase tracking-widest mb-6">Action Effectiveness</h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={actionData} layout="vertical" barSize={16}>
-              <XAxis type="number" domain={[0,100]} tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={false} tickLine={false} unit="%" />
-              <YAxis type="category" dataKey="name" tick={{ fill: '#8888aa', fontSize: 12 }} axisLine={false} tickLine={false} width={150} />
+              <XAxis type="number" domain={[0,100]} tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} unit="%" />
+              <YAxis type="category" dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} width={150} />
               <Tooltip {...tooltipStyle} formatter={(v) => `${v}%`} />
               <Bar dataKey="success" fill="url(#grad)" radius={[0,8,8,0]} name="Success Rate">
-                <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#4f7df5"/><stop offset="100%" stopColor="#06d6a0"/></linearGradient></defs>
+                <defs>
+                  <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#52525b"/>
+                    <stop offset="100%" stopColor="#ffffff"/>
+                  </linearGradient>
+                </defs>
               </Bar>
             </BarChart>
           </ResponsiveContainer>

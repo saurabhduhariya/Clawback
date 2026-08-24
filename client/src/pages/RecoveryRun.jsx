@@ -1,158 +1,112 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import { Zap, Play } from 'lucide-react';
 
-const fmt = (p) => '₹' + (p / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
 export default function RecoveryRun() {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState(null);
-  const [pastRuns, setPastRuns] = useState([]);
-  const [error, setError] = useState(null);
-
-  useEffect(() => { api.getRecoveryRuns().then(setPastRuns).catch(console.error); }, [result]);
+  const [params, setParams] = useState({ limit: 10, offset: 0, days_back: 7, auto_execute: true });
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState(null);
+  const navigate = useNavigate();
 
   const handleRun = async () => {
-    setRunning(true); setError(null); setResult(null);
-    try { setResult(await api.startRecoveryRun()); }
-    catch (e) { setError(e.message); }
-    finally { setRunning(false); }
+    setLoading(true);
+    setStatus({ step: 'Initializing AI state machine...', progress: 10 });
+    
+    try {
+      setTimeout(() => setStatus({ step: 'Fetching failed transactions from Razorpay...', progress: 30 }), 1000);
+      setTimeout(() => setStatus({ step: 'Analyzing failure reasons with Gemini...', progress: 60 }), 2500);
+      setTimeout(() => setStatus({ step: 'Executing recovery strategies...', progress: 90 }), 4500);
+      
+      const res = await api.runRecovery(params);
+      
+      setStatus({ step: 'Complete!', progress: 100 });
+      setTimeout(() => navigate('/transactions'), 1000);
+    } catch (err) {
+      console.error(err);
+      setStatus({ step: 'Error: ' + err.message, progress: 0, error: true });
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="px-6 py-8 max-w-[1440px] mx-auto">
-      <h1 className="text-2xl font-extrabold tracking-tight mb-1">Recovery Agent</h1>
-      <p className="text-txt-secondary text-sm mb-7">Trigger the AI-powered recovery pipeline</p>
-
-      <div className="glass rounded-2xl p-10 text-center">
-        {!running && !result && !error && (
-          <>
-            <p className="text-txt-secondary text-base mb-8 leading-relaxed">
-              The agent will analyze every failed transaction, run guardrail checks,<br />
-              pick the optimal recovery strategy, and call Razorpay APIs.
-            </p>
-            <button onClick={handleRun} className="btn-gradient px-8 py-3.5 rounded-xl text-white font-semibold text-base cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(79,125,245,0.3)] border-none font-sans">
-              🚀 Start Recovery Run
-            </button>
-          </>
-        )}
-
-        {running && (
-          <div className="py-4">
-            <div className="text-5xl mb-5">🤖</div>
-            <p className="text-lg font-semibold text-txt-primary mb-2">Agent is processing transactions...</p>
-            <p className="text-txt-muted text-sm mb-6">Diagnosing → Guardrails → Strategy → Execute → Simulate</p>
-            <div className="max-w-md mx-auto">
-              <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                <div className="progress-fill" style={{ width: '65%' }} />
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-txt-muted">
-                <span>Processing...</span>
-                <span><span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} /></span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="py-4">
-            <p className="text-accent-red text-base mb-4">❌ Error: {error}</p>
-            <button onClick={handleRun} className="px-4 py-2 rounded-lg border border-border-glass bg-glass text-txt-secondary text-sm font-medium cursor-pointer hover:border-border-glass-hover hover:text-txt-primary transition-all font-sans">
-              Retry
-            </button>
-          </div>
-        )}
-
-        {result && (
-          <>
-            <div className="text-5xl mb-3">✅</div>
-            <p className="text-lg font-semibold text-accent-green mb-6">Recovery Run #{result.runId} Complete</p>
-
-            <div className="grid grid-cols-4 gap-3 max-w-2xl mx-auto mb-8 max-sm:grid-cols-2">
-              {[
-                { label: 'Processed', value: result.totalProcessed, color: '' },
-                { label: 'At Risk', value: fmt(result.totalAtRisk), color: 'text-accent-orange' },
-                { label: 'Recovered', value: fmt(result.totalRecovered), color: 'text-accent-green' },
-                { label: 'Rate', value: `${result.recoveryRate}%`, color: 'text-accent-blue' },
-              ].map((item, i) => (
-                <div key={i} className="p-4 rounded-xl bg-glass border border-border-glass text-center">
-                  <div className="text-[0.68rem] text-txt-muted uppercase tracking-wider">{item.label}</div>
-                  <div className={`text-xl font-bold mt-1 ${item.color}`}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-left">
-              <h3 className="text-[0.68rem] font-semibold text-txt-muted uppercase tracking-wider mb-3">Transaction Results</h3>
-              <div className="max-h-72 overflow-auto rounded-xl">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr>
-                      {['ID', 'Customer', 'Action', 'Outcome', 'Result'].map(h => (
-                        <th key={h} className="text-left px-4 py-2.5 text-[0.68rem] font-semibold text-txt-muted uppercase tracking-wider border-b border-border-glass">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.results.map((r, i) => (
-                      <tr key={i} className="border-b border-white/[0.03]">
-                        <td className="px-4 py-2.5 font-mono text-xs text-txt-secondary">{r.id}</td>
-                        <td className="px-4 py-2.5 text-sm">{r.customer}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-accent-blue">{r.action || '-'}</td>
-                        <td className="px-4 py-2.5 font-mono text-xs text-txt-secondary">{r.outcome || '-'}</td>
-                        <td className="px-4 py-2.5 text-sm font-semibold">
-                          <span className={r.result === 'success' ? 'text-accent-green' : 'text-txt-secondary'}>
-                            {r.result === 'success' ? '✓ Recovered' : r.result === 'error' ? '✗ Error' : '✗ Failed'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <button onClick={() => { setResult(null); setError(null); }}
-              className="mt-6 px-4 py-2 rounded-lg border border-border-glass bg-glass text-txt-secondary text-sm font-medium cursor-pointer hover:text-txt-primary transition-all font-sans">
-              ← Run Another
-            </button>
-          </>
-        )}
-      </div>
-
-      {pastRuns.length > 0 && (
-        <div className="glass rounded-2xl p-6 mt-6">
-          <h2 className="text-[0.7rem] font-semibold text-txt-secondary uppercase tracking-wider mb-5">Past Recovery Runs</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  {['Run', 'Date', 'Transactions', 'At Risk', 'Recovered', 'Rate', 'Status'].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-[0.68rem] font-semibold text-txt-muted uppercase tracking-wider border-b border-border-glass">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pastRuns.map(r => (
-                  <tr key={r.id} className="border-b border-white/[0.03]">
-                    <td className="px-4 py-3 font-semibold">#{r.id}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-txt-secondary">{new Date(r.started_at).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm">{r.total_transactions}</td>
-                    <td className="px-4 py-3 text-sm">{fmt(r.total_at_risk_amount)}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-accent-green">{fmt(r.total_recovered)}</td>
-                    <td className="px-4 py-3 text-sm font-semibold">{r.recovery_rate}%</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[0.7rem] font-semibold uppercase ${r.status === 'completed' ? 'bg-accent-green/12 text-emerald-300' : 'bg-accent-blue/12 text-blue-300'}`}>
-                        <span className={`badge-dot ${r.status === 'completed' ? 'bg-accent-green' : 'bg-accent-blue'}`} />
-                        {r.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+    <div className="px-6 py-12 max-w-[1440px] mx-auto min-h-[80vh] flex items-center justify-center relative z-10">
+      <div className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-8 md:p-10 border border-white/5 shadow-2xl w-full max-w-2xl relative overflow-hidden animate-in">
+        
+        <div className="absolute -right-10 -top-10 text-white/5 pointer-events-none select-none">
+          <Zap className="w-64 h-64" />
         </div>
-      )}
+        
+        <div className="relative z-10">
+          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-6 border border-white/10">
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          
+          <h1 className="text-3xl font-bold mb-2 text-white">Trigger Recovery Run</h1>
+          <p className="text-zinc-400 text-sm mb-8">Launch the autonomous AI agent to scan and recover failed payments.</p>
+
+          <div className="space-y-6 mb-8">
+            <div className="grid grid-cols-2 gap-6 max-sm:grid-cols-1">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Max Transactions</label>
+                <input type="number" 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white/30 transition-colors"
+                  value={params.limit} onChange={e => setParams({...params, limit: parseInt(e.target.value)})} 
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Days Back</label>
+                <input type="number" 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white/30 transition-colors"
+                  value={params.days_back} onChange={e => setParams({...params, days_back: parseInt(e.target.value)})} 
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            
+            <label className="flex items-center gap-3 p-4 bg-black/30 border border-white/5 rounded-xl cursor-pointer hover:bg-black/50 transition-colors group">
+              <div className="relative flex items-center justify-center">
+                <input type="checkbox" className="sr-only" 
+                  checked={params.auto_execute} onChange={e => setParams({...params, auto_execute: e.target.checked})}
+                  disabled={loading}
+                />
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${params.auto_execute ? 'bg-white border-white' : 'bg-transparent border-white/20 group-hover:border-white/40'}`}>
+                  {params.auto_execute && <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                </div>
+              </div>
+              <div className="select-none">
+                <div className="text-sm font-semibold text-white">Auto-Execute Strategies</div>
+                <div className="text-xs text-zinc-500">If unchecked, generates diagnosis only without sending links.</div>
+              </div>
+            </label>
+          </div>
+
+          {loading || status ? (
+            <div className="bg-black/50 rounded-xl p-5 border border-white/5">
+              <div className="flex justify-between items-center mb-3">
+                <span className={`text-sm font-semibold ${status?.error ? 'text-red-400' : 'text-white'}`}>
+                  {status?.step || 'Starting...'}
+                </span>
+                <span className="text-xs font-mono text-zinc-500">{status?.progress || 0}%</span>
+              </div>
+              <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+                <div className="progress-fill" style={{ width: `${status?.progress || 0}%`, backgroundColor: status?.error ? '#ef4444' : '#ffffff' }} />
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={handleRun}
+              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 py-4 rounded-xl text-xs font-bold tracking-[0.15em] uppercase transition-all shadow-xl flex items-center justify-center gap-2 group"
+            >
+              <Play className="w-4 h-4 text-zinc-500 group-hover:text-white transition-colors" /> 
+              Launch Agent
+            </button>
+          )}
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
+      </div>
     </div>
   );
 }
