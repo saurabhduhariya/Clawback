@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 
 # SQLite database
 server/db/database.sqlite
+AI_MEMORY.md

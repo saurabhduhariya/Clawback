@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import RecoveryRun from './pages/RecoveryRun';
 import AuditTrail from './pages/AuditTrail';
+import RecoverBot from './components/RecoverBot';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -14,6 +15,7 @@ function AnimatedRoutes() {
 
   return (
     <div className="min-h-screen">
+      {!isLanding && <RecoverBot />}
       {!isLanding && <Navbar />}
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>

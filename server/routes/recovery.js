@@ -1,57 +1,91 @@
 const express = require("express");
 const router = express.Router();
-const { queryAll, queryOne, run } = require("../db/connection");
+const { queryAll, run } = require("../db/connection");
 const buildRecoveryGraph = require("../graph/recoveryGraph");
 
-// POST /api/recovery/run — trigger a full batch recovery
-router.post("/run", async (req, res) => {
+// GET /api/recovery/stream — trigger a full batch recovery and stream logs via SSE
+router.get("/stream", async (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+
+  const sendEvent = (type, data) => {
+    res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
   try {
-    // 1. Get all recoverable transactions
+    const limit = parseInt(req.query.limit) || 10;
+    
+    // 1. Get recoverable transactions
     const transactions = queryAll(
       `SELECT * FROM transactions
        WHERE status IN ('failed', 'abandoned', 'overdue')
-       AND attempt_count < max_attempts`
+       AND attempt_count < max_attempts LIMIT ?`,
+      [limit]
     );
 
     if (transactions.length === 0) {
-      return res.json({ message: "No transactions to recover", runId: null, results: [] });
+      sendEvent("complete", { message: "No transactions to recover", results: [] });
+      return res.end();
     }
 
-    // 2. Create a recovery_runs record
+    sendEvent("info", { message: `Found ${transactions.length} transactions to process.` });
+
+    // 2. Create recovery run
     const totalAtRisk = transactions.reduce((sum, t) => sum + t.amount, 0);
     const { lastInsertRowid: runId } = run(
       `INSERT INTO recovery_runs (total_transactions, total_at_risk_amount) VALUES (?, ?)`,
       [transactions.length, totalAtRisk]
     );
 
-    // 3. Build the LangGraph and process each transaction
     const graph = buildRecoveryGraph();
     const results = [];
+    let totalRecovered = 0;
 
+    // 3. Process each transaction
     for (const txn of transactions) {
+      sendEvent("info", { message: `Processing transaction ${txn.id} for ${txn.customer_name}` });
+      
       try {
-        const result = await graph.invoke({
-          transactionId: txn.id,
-          runId: runId,
-        });
+        let finalState = null;
+        const stream = await graph.stream({ transactionId: txn.id, runId }, { streamMode: "updates" });
+        
+        for await (const chunk of stream) {
+          // chunk is an object like { diagnose: { diagnosis: {...} } }
+          const nodeName = Object.keys(chunk)[0];
+          const nodeData = chunk[nodeName];
+          
+          if (nodeData.auditLog) {
+            sendEvent("log", { 
+              transactionId: txn.id, 
+              node: nodeName, 
+              detail: nodeData.auditLog.detail 
+            });
+          }
+          finalState = { ...finalState, ...nodeData };
+        }
+
+        const isSuccess = finalState?.recoveryResult === "success";
+        if (isSuccess) totalRecovered += txn.amount;
+
         results.push({
           id: txn.id,
           customer: txn.customer_name,
           amount: txn.amount,
           type: txn.type,
-          action: result.chosenAction,
-          result: result.recoveryResult,
-          outcome: result.simulatedOutcome,
+          action: finalState?.chosenAction,
+          result: finalState?.recoveryResult,
         });
+
       } catch (err) {
         console.error(`Error processing ${txn.id}:`, err.message);
+        sendEvent("error", { transactionId: txn.id, error: err.message });
         results.push({ id: txn.id, result: "error", error: err.message });
       }
     }
 
-    // 4. Calculate final metrics
-    const successResults = results.filter((r) => r.result === "success");
-    const totalRecovered = successResults.reduce((sum, r) => sum + (r.amount || 0), 0);
     const recoveryRate = totalAtRisk > 0 ? ((totalRecovered / totalAtRisk) * 100).toFixed(1) : 0;
 
     // Update run summary
@@ -63,7 +97,7 @@ router.post("/run", async (req, res) => {
       [totalRecovered, parseFloat(recoveryRate), runId]
     );
 
-    res.json({
+    sendEvent("complete", {
       runId,
       totalProcessed: transactions.length,
       totalAtRisk,
@@ -71,9 +105,12 @@ router.post("/run", async (req, res) => {
       recoveryRate: parseFloat(recoveryRate),
       results,
     });
+    res.end();
+
   } catch (err) {
     console.error("Recovery run error:", err);
-    res.status(500).json({ error: err.message });
+    sendEvent("error", { error: err.message });
+    res.end();
   }
 });
 

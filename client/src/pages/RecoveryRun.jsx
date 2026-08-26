@@ -1,8 +1,68 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
 import { api } from '../utils/api';
 import { Zap, Play, CheckCircle2, Loader2, Circle, ArrowRight } from 'lucide-react';
+
+
+const CustomNode = ({ data }) => {
+  const isActive = data.status === 'active';
+  const isDone = data.status === 'done';
+  const isError = data.status === 'error';
+  
+  return (
+    <div className={`px-4 py-3 rounded-xl border backdrop-blur-md min-w-[150px] transition-all duration-300 ${
+      isActive ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]' :
+      isDone ? 'bg-white/5 border-white/20' :
+      isError ? 'bg-red-500/20 border-red-500/50' :
+      'bg-zinc-900/50 border-white/5 opacity-50'
+    }`}>
+      <Handle type="target" position={Position.Top} className="opacity-0" />
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-lg flex flex-shrink-0 items-center justify-center ${
+          isActive ? 'bg-emerald-500/20 text-emerald-400' : 
+          isDone ? 'bg-white/10 text-white' : 
+          isError ? 'bg-red-500/20 text-red-400' :
+          'bg-black/50 text-zinc-500'
+        }`}>
+           {data.icon}
+        </div>
+        <div>
+          <div className={`text-xs font-bold ${isActive ? 'text-emerald-400' : isDone ? 'text-white' : isError ? 'text-red-400' : 'text-zinc-500'}`}>
+            {data.label}
+          </div>
+          <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{isActive ? 'Processing...' : isDone ? 'Completed' : isError ? 'Failed' : 'Pending'}</div>
+        </div>
+      </div>
+      <Handle type="source" position={Position.Bottom} className="opacity-0" />
+    </div>
+  );
+};
+
+const nodeTypes = { custom: CustomNode };
+
+const initialNodes = [
+  { id: 'detect', type: 'custom', position: { x: 250, y: 0 }, data: { label: 'Detect Failure', status: 'pending', icon: '🔍' } },
+  { id: 'diagnose', type: 'custom', position: { x: 250, y: 100 }, data: { label: 'Diagnose (LLM)', status: 'pending', icon: '🧠' } },
+  { id: 'checkGuardrails', type: 'custom', position: { x: 250, y: 200 }, data: { label: 'Guardrails', status: 'pending', icon: '🛡️' } },
+  { id: 'pickStrategy', type: 'custom', position: { x: 100, y: 320 }, data: { label: 'Decide Strategy', status: 'pending', icon: '⚖️' } },
+  { id: 'execute', type: 'custom', position: { x: 100, y: 420 }, data: { label: 'Execute', status: 'pending', icon: '⚡' } },
+  { id: 'simulateResponse', type: 'custom', position: { x: 100, y: 520 }, data: { label: 'Simulate', status: 'pending', icon: '📞' } },
+  { id: 'updateState', type: 'custom', position: { x: 250, y: 640 }, data: { label: 'Update DB', status: 'pending', icon: '💾' } },
+];
+
+const initialEdges = [
+  { id: 'e1', source: 'detect', target: 'diagnose', style: { stroke: '#52525b' } },
+  { id: 'e2', source: 'diagnose', target: 'checkGuardrails', style: { stroke: '#52525b' } },
+  { id: 'e3', source: 'checkGuardrails', target: 'pickStrategy', type: 'step', style: { stroke: '#52525b' }, label: 'Allowed', labelBgStyle: { fill: '#18181b' }, labelStyle: { fill: '#10b981', fontSize: 10 } },
+  { id: 'e4', source: 'checkGuardrails', target: 'updateState', type: 'step', style: { stroke: '#52525b' }, label: 'Blocked', labelBgStyle: { fill: '#18181b' }, labelStyle: { fill: '#ef4444', fontSize: 10 } },
+  { id: 'e5', source: 'pickStrategy', target: 'execute', style: { stroke: '#52525b' } },
+  { id: 'e6', source: 'execute', target: 'simulateResponse', style: { stroke: '#52525b' } },
+  { id: 'e7', source: 'simulateResponse', target: 'updateState', type: 'step', style: { stroke: '#52525b' } },
+];
 
 const STEPS = [
   { label: 'Fetch Transactions', desc: 'Scanning Razorpay for failed payments' },
@@ -15,6 +75,10 @@ export default function RecoveryRun() {
   const [params, setParams] = useState({ limit: 10, offset: 0, days_back: 7, auto_execute: true });
   const [running, setRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
+  const [nodes, setNodes] = useState(initialNodes);
+  const [edges, setEdges] = useState(initialEdges);
+  const [visitedNodes, setVisitedNodes] = useState(new Set());
+  const [currentNode, setCurrentNode] = useState(null);
   const [logs, setLogs] = useState([]);
   const [done, setDone] = useState(false);
   const logRef = useRef(null);
@@ -28,40 +92,48 @@ export default function RecoveryRun() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [logs]);
 
-  const handleRun = async () => {
+  const handleRun = () => {
     setRunning(true);
     setLogs([]);
     setDone(false);
-
     setCurrentStep(0);
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+    setVisitedNodes(new Set());
+    setCurrentNode(null);
+    
     addLog('Initializing AI state machine...', 'info');
-    addLog(`Parameters: limit=${params.limit}, days_back=${params.days_back}`, 'info');
+    addLog(`Connecting via Server-Sent Events (SSE) stream...`, 'info');
 
-    await new Promise(r => setTimeout(r, 800));
-    addLog('Connecting to Razorpay API...', 'info');
+    const es = new EventSource(`http://localhost:3001/api/recovery/stream?limit=${params.limit}`);
+    
+    es.addEventListener('info', (e) => {
+      const data = JSON.parse(e.data);
+      addLog(data.message, 'info');
+      if (data.message.includes('Processing transaction')) setCurrentStep(1);
+    });
 
-    setCurrentStep(1);
-    await new Promise(r => setTimeout(r, 600));
-    addLog('Fetching failed transactions...', 'highlight');
-
-    try {
+    es.addEventListener('log', (e) => {
+      const data = JSON.parse(e.data);
       setCurrentStep(2);
-      addLog('Running Gemini diagnosis on failures...', 'highlight');
-      await new Promise(r => setTimeout(r, 500));
-      addLog('Executing recovery strategies...', 'highlight');
+      addLog(`[${data.transactionId}] ${data.detail}`, 'highlight');
+    });
 
-      const res = await api.runRecovery(params);
-
+    es.addEventListener('complete', (e) => {
+      const data = JSON.parse(e.data);
       setCurrentStep(3);
-      addLog(`Recovery complete!`, 'success');
-      addLog(`Processed transactions successfully`, 'success');
+      addLog(`Recovery complete! Processed ${data.totalProcessed || 0} transactions`, 'success');
       setDone(true);
-
+      es.close();
       setTimeout(() => navigate('/transactions'), 2500);
-    } catch (err) {
-      addLog(`Error: ${err.message}`, 'error');
+    });
+
+    es.addEventListener('error', (e) => {
+      const data = JSON.parse(e.data);
+      addLog(`Error: ${data.error}`, 'error');
+      es.close();
       setRunning(false);
-    }
+    });
   };
 
   const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
@@ -135,40 +207,26 @@ export default function RecoveryRun() {
 
         {/* Right: Live Output */}
         <motion.div variants={fadeUp} className="lg:col-span-3 space-y-4">
-          {/* Step indicators */}
-          <div className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5">
-            <h3 className="text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest mb-4">Pipeline Status</h3>
-            <div className="flex items-center gap-2">
-              {STEPS.map((step, i) => (
-                <div key={i} className="flex items-center gap-2 flex-1">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-all duration-300 flex-shrink-0 ${
-                    i < currentStep ? 'bg-emerald-500/20 border-emerald-500/30' :
-                    i === currentStep ? 'bg-white/10 border-white/20' :
-                    'bg-zinc-900 border-white/5'
-                  }`}>
-                    {i < currentStep ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    ) : i === currentStep ? (
-                      <Loader2 className="w-4 h-4 text-white animate-spin" />
-                    ) : (
-                      <Circle className="w-3 h-3 text-zinc-700" />
-                    )}
-                  </div>
-                  {i < STEPS.length - 1 && (
-                    <div className={`flex-1 h-px transition-colors duration-500 ${i < currentStep ? 'bg-emerald-500/30' : 'bg-white/5'}`} />
-                  )}
-                </div>
-              ))}
+          {/* LangGraph Live Visualizer */}
+          <div className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden h-[400px] relative">
+            <div className="absolute top-4 left-4 z-10">
+              <h3 className="text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${running ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
+                Live Agent Graph
+              </h3>
             </div>
-            <div className="mt-3 flex justify-between">
-              {STEPS.map((step, i) => (
-                <div key={i} className="flex-1 pr-2">
-                  <div className={`text-[10px] font-semibold transition-colors ${
-                    i <= currentStep ? 'text-zinc-300' : 'text-zinc-700'
-                  }`}>{step.label}</div>
-                </div>
-              ))}
-            </div>
+            <ReactFlow 
+              nodes={nodes} 
+              edges={edges} 
+              nodeTypes={nodeTypes}
+              fitView 
+              minZoom={0.5}
+              maxZoom={1.5}
+              proOptions={{ hideAttribution: true }}
+              className="bg-black/20"
+            >
+              <Background color="#52525b" gap={20} size={1} />
+            </ReactFlow>
           </div>
 
           {/* Terminal Log */}

@@ -17,6 +17,8 @@ app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/recovery', require('./routes/recovery'));
 app.use('/api/metrics', require('./routes/metrics'));
 app.use('/api/audit', require('./routes/audit'));
+app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/chat', require('./routes/chat'));
 
 // Initialize DB then start server
 const PORT = process.env.PORT || 3001;

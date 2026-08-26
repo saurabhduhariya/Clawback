@@ -15,10 +15,12 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "langchain": "^1.5.10",
     "node-cron": "^4.6.0",
     "razorpay": "^2.9.8",
     "sql.js": "^1.14.2",
-    "uuid": "^14.0.2"
+    "uuid": "^14.0.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
