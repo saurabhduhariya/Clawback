@@ -33,10 +33,10 @@ router.post('/razorpay', async (req, res) => {
     const payment = event.payload.payment.entity;
     
     // Insert into transactions if doesn't exist
-    const existing = queryOne('SELECT id FROM transactions WHERE id = ?', [payment.id]);
+    const existing = await queryOne('SELECT id FROM transactions WHERE id = ?', [payment.id]);
     
     if (!existing) {
-      run(
+      await run(
         `INSERT INTO transactions 
         (id, amount, currency, status, customer_name, customer_email, customer_phone, failure_reason, failure_source, type, max_attempts) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

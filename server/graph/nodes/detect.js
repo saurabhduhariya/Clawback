@@ -1,7 +1,7 @@
 const { queryOne } = require("../../db/connection");
 
 async function detect(state) {
-  const row = queryOne("SELECT * FROM transactions WHERE id = ?", [state.transactionId]);
+  const row = await queryOne("SELECT * FROM transactions WHERE id = ?", [state.transactionId]);
 
   if (!row) {
     throw new Error(`Transaction ${state.transactionId} not found`);

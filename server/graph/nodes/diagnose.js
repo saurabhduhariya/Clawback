@@ -1,4 +1,4 @@
-const llm = require("../../config/gemini");
+const { getStructuredLlm } = require("../../config/gemini");
 const { z } = require("zod");
 
 // Define the structured output schema
@@ -39,7 +39,7 @@ Rules:
 - For network_timeout, "retry_payment" is safe`;
 
   try {
-    const structuredLlm = llm.withStructuredOutput(diagnosisSchema);
+    const structuredLlm = getStructuredLlm(diagnosisSchema);
     const diagnosis = await structuredLlm.invoke(prompt);
 
     return {

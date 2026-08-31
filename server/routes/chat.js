@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const llm = require('../config/gemini');
+const { llm } = require('../config/gemini');
 const { queryAll, run } = require('../db/connection');
 const buildRecoveryGraph = require('../graph/recoveryGraph');
 const razorpay = require('../config/razorpay');
@@ -14,7 +14,7 @@ const queryDatabaseTool = tool(
   async ({ query }) => {
     try {
       console.log(`[Tool] Executing SQL: ${query}`);
-      const results = queryAll(query);
+      const results = await queryAll(query);
       return JSON.stringify(results.slice(0, 50)); // limit to 50 rows
     } catch (err) {
       return `Error executing query: ${err.message}`;
@@ -22,9 +22,9 @@ const queryDatabaseTool = tool(
   },
   {
     name: "query_database",
-    description: "Executes a SQL SELECT query against the local SQLite database. Use this to analyze transactions, find specific records, or calculate metrics.",
+    description: "Executes a SQL SELECT query against the PostgreSQL database. Use this to analyze transactions, find specific records, or calculate metrics.",
     schema: z.object({
-      query: z.string().describe("A valid SQLite SELECT query."),
+      query: z.string().describe("A valid PostgreSQL SELECT query."),
     }),
   }
 );
@@ -35,7 +35,7 @@ const triggerRecoveryTool = tool(
     try {
       console.log(`[Tool] Triggering recovery for: ${transactionId}`);
       // check if it exists
-      const txn = queryAll('SELECT id FROM transactions WHERE id = ?', [transactionId]);
+      const txn = await queryAll('SELECT id FROM transactions WHERE id = ?', [transactionId]);
       if (txn.length === 0) return `Error: Transaction ${transactionId} not found.`;
       
       const graph = buildRecoveryGraph();
@@ -90,7 +90,7 @@ You have access to tools that can read the database, trigger autonomous recoveri
 Always use markdown to format your responses (e.g. bold text, bullet points). Make links clickable.
 If you generate a payment link, present it clearly to the user.
 
-Database Schema (SQLite):
+Database Schema (PostgreSQL):
 - Table: transactions (id, customer_name, customer_email, customer_phone, amount, currency, type, status, failure_reason, failure_source, attempt_count, max_attempts, recovered_amount)
 - Table: recovery_runs (id, status, total_transactions, total_at_risk_amount, total_recovered, recovery_rate)
 - Table: recovery_actions (id, transaction_id, chosen_action, razorpay_api_called, recovery_result)`;

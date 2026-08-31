@@ -28,4 +28,13 @@ if (llms.length > 1) {
   });
 }
 
-module.exports = llm;
+module.exports = {
+  llm,
+  getStructuredLlm: (schema) => {
+    const structuredLlms = llms.map(l => l.withStructuredOutput(schema));
+    if (structuredLlms.length > 1) {
+      return structuredLlms[0].withFallbacks({ fallbacks: structuredLlms.slice(1) });
+    }
+    return structuredLlms[0];
+  }
+};

@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 // 30 realistic Indian customer profiles
 // ============================================
 const CUSTOMERS = [
-  { name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', phone: '+919876543210' },
+  { name: 'Saurabh Prajapat', email: 'kkpncc3188@gmail.com', phone: '+916377102158' },
   { name: 'Priya Patel', email: 'priya.patel@gmail.com', phone: '+919123456789' },
   { name: 'Amit Kumar', email: 'amit.kumar@gmail.com', phone: '+919234567890' },
   { name: 'Sneha Reddy', email: 'sneha.reddy@gmail.com', phone: '+919345678901' },
@@ -187,31 +187,26 @@ function generateTransactions() {
 // Seed the database
 // ============================================
 async function seed() {
-  const db = await getDb();
-
-  // Clear existing data
-  db.run('DELETE FROM recovery_actions');
-  db.run('DELETE FROM recovery_runs');
-  db.run('DELETE FROM transactions');
+  const pool = await getDb();
+  await pool.query("DELETE FROM recovery_actions");
+  await pool.query("DELETE FROM recovery_runs");
+  await pool.query("DELETE FROM transactions");
 
   const transactions = generateTransactions();
 
-  const stmt = db.prepare(`
-    INSERT INTO transactions (
-      id, customer_name, customer_email, customer_phone,
-      amount, type, status, failure_reason, failure_source, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
   for (const txn of transactions) {
-    stmt.run([
+    await pool.query(`
+      INSERT INTO transactions (
+        id, customer_name, customer_email, customer_phone,
+        amount, type, status, failure_reason, failure_source, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT DO NOTHING
+    `, [
       txn.id, txn.customer_name, txn.customer_email, txn.customer_phone,
       txn.amount, txn.type, txn.status, txn.failure_reason, txn.failure_source,
       txn.created_at,
     ]);
   }
-  stmt.free();
-  saveDb();
 
   // Print summary
   console.log('🌱 Seeded database with', transactions.length, 'transactions:\n');
@@ -240,4 +235,4 @@ async function seed() {
   console.log('\n✅ Seeding complete!');
 }
 
-seed().catch(console.error);
+seed().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });

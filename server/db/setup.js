@@ -1,12 +1,12 @@
-const { getDb, saveDb } = require('./connection');
+const { getDb } = require("./connection");
 
 async function setup() {
-  const db = await getDb();
+  const pool = await getDb();
 
-  console.log('Creating database tables...\n');
+  console.log("Creating database tables...\n");
 
-  // Table 1: transactions
-  db.run(`
+  // Create transactions
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id              TEXT PRIMARY KEY,
       customer_name   TEXT NOT NULL,
@@ -23,43 +23,18 @@ async function setup() {
       razorpay_order_id   TEXT,
       razorpay_payment_id TEXT,
       recovered_amount    INTEGER DEFAULT 0,
-      created_at      TEXT DEFAULT (datetime('now')),
-      updated_at      TEXT DEFAULT (datetime('now'))
+      created_at      TIMESTAMP DEFAULT NOW(),
+      updated_at      TIMESTAMP DEFAULT NOW()
     );
   `);
-  console.log('✅ Table "transactions" created');
+  console.log("✅ Table \"transactions\" created");
 
-  // Table 2: recovery_actions (audit trail)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS recovery_actions (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      transaction_id  TEXT NOT NULL,
-      run_id          INTEGER NOT NULL,
-      attempt_number  INTEGER NOT NULL,
-      diagnosis       TEXT,
-      guardrail_check TEXT NOT NULL,
-      chosen_action   TEXT,
-      action_reason   TEXT,
-      razorpay_api_called  TEXT,
-      razorpay_request     TEXT,
-      razorpay_response    TEXT,
-      razorpay_ref_id      TEXT,
-      razorpay_short_url   TEXT,
-      simulated_outcome    TEXT,
-      recovery_result      TEXT NOT NULL,
-      created_at      TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (transaction_id) REFERENCES transactions(id),
-      FOREIGN KEY (run_id) REFERENCES recovery_runs(id)
-    );
-  `);
-  console.log('✅ Table "recovery_actions" created');
-
-  // Table 3: recovery_runs
-  db.run(`
+  // Create recovery_runs (has to be before recovery_actions for foreign key)
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS recovery_runs (
-      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-      started_at            TEXT DEFAULT (datetime('now')),
-      completed_at          TEXT,
+      id                    SERIAL PRIMARY KEY,
+      started_at            TIMESTAMP DEFAULT NOW(),
+      completed_at          TIMESTAMP,
       status                TEXT DEFAULT 'running',
       total_transactions    INTEGER DEFAULT 0,
       total_at_risk_amount  INTEGER DEFAULT 0,
@@ -75,10 +50,38 @@ async function setup() {
       escalations           INTEGER DEFAULT 0
     );
   `);
-  console.log('✅ Table "recovery_runs" created');
+  console.log("✅ Table \"recovery_runs\" created");
 
-  saveDb();
-  console.log('\n🎉 Database setup complete!');
+  // Create recovery_actions
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recovery_actions (
+      id              SERIAL PRIMARY KEY,
+      transaction_id  TEXT NOT NULL,
+      run_id          INTEGER NOT NULL,
+      attempt_number  INTEGER NOT NULL,
+      diagnosis       TEXT,
+      guardrail_check TEXT NOT NULL,
+      chosen_action   TEXT,
+      action_reason   TEXT,
+      razorpay_api_called  TEXT,
+      razorpay_request     TEXT,
+      razorpay_response    TEXT,
+      razorpay_ref_id      TEXT,
+      razorpay_short_url   TEXT,
+      simulated_outcome    TEXT,
+      recovery_result      TEXT NOT NULL,
+      created_at      TIMESTAMP DEFAULT NOW(),
+      FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+      FOREIGN KEY (run_id) REFERENCES recovery_runs(id)
+    );
+  `);
+  console.log("✅ Table \"recovery_actions\" created");
+
+  console.log("\n🎉 Database setup complete!");
+  process.exit(0);
 }
 
-setup().catch(console.error);
+setup().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

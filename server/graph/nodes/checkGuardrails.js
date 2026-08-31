@@ -22,7 +22,7 @@ async function checkGuardrails(state) {
   }
 
   // Rule 3: Cooldown — check time since last attempt
-  const lastAction = queryOne(
+  const lastAction = await queryOne(
     "SELECT created_at FROM recovery_actions WHERE transaction_id = ? ORDER BY created_at DESC LIMIT 1",
     [transaction.id]
   );

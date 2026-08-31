@@ -3,14 +3,14 @@ const router = express.Router();
 const { queryAll, queryOne } = require("../db/connection");
 
 // GET /api/audit/:transactionId — full audit trail for one transaction
-router.get("/:transactionId", (req, res) => {
+router.get("/:transactionId", async (req, res) => {
   try {
-    const transaction = queryOne("SELECT * FROM transactions WHERE id = ?", [req.params.transactionId]);
+    const transaction = await queryOne("SELECT * FROM transactions WHERE id = ?", [req.params.transactionId]);
     if (!transaction) {
       return res.status(404).json({ error: "Transaction not found" });
     }
 
-    const actions = queryAll(
+    const actions = await queryAll(
       `SELECT * FROM recovery_actions WHERE transaction_id = ? ORDER BY created_at ASC`,
       [req.params.transactionId]
     );
@@ -18,9 +18,9 @@ router.get("/:transactionId", (req, res) => {
     // Parse JSON fields for cleaner response
     const parsedActions = actions.map(a => ({
       ...a,
-      diagnosis: a.diagnosis ? JSON.parse(a.diagnosis) : null,
-      razorpay_request: a.razorpay_request ? JSON.parse(a.razorpay_request) : null,
-      razorpay_response: a.razorpay_response ? JSON.parse(a.razorpay_response) : null,
+      diagnosis: a.diagnosis ? (typeof a.diagnosis === 'string' ? JSON.parse(a.diagnosis) : a.diagnosis) : null,
+      razorpay_request: a.razorpay_request ? (typeof a.razorpay_request === 'string' ? JSON.parse(a.razorpay_request) : a.razorpay_request) : null,
+      razorpay_response: a.razorpay_response ? (typeof a.razorpay_response === 'string' ? JSON.parse(a.razorpay_response) : a.razorpay_response) : null,
     }));
 
     res.json({

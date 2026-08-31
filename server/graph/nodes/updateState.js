@@ -12,14 +12,14 @@ async function updateState(state) {
   const recoveredAmount = recoveryResult === "success" ? transaction.amount : 0;
 
   // 1. Update the transaction row
-  run(
+  await run(
     `UPDATE transactions SET status = ?, attempt_count = attempt_count + 1,
-     recovered_amount = ?, updated_at = datetime('now') WHERE id = ?`,
+     recovered_amount = ?, updated_at = NOW() WHERE id = ?`,
     [newStatus, recoveredAmount, transaction.id]
   );
 
   // 2. Insert audit trail record
-  run(
+  await run(
     `INSERT INTO recovery_actions (
       transaction_id, run_id, attempt_number, diagnosis, guardrail_check,
       chosen_action, action_reason, razorpay_api_called, razorpay_request,

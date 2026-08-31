@@ -1,7 +1,7 @@
 const { AgentExecutor, createReactAgent } = require("@langchain/langgraph/prebuilt");
-const llm = require('./config/gemini');
+const { llm } = require('./config/gemini');
 
-async function run() {
+async function await run() {
   const start = Date.now();
   try {
     const res = await fetch('http://localhost:3001/api/chat', {
@@ -16,4 +16,4 @@ async function run() {
     console.log(e);
   }
 }
-run();
+await run();
