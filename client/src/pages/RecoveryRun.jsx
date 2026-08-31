@@ -5,6 +5,7 @@ import { ReactFlow, Background, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useRecovery } from '../context/RecoveryContext';
+import { useToast } from '../context/ToastContext';
 import { Zap, Play, CheckCircle2, Circle, Search, Brain, Shield, GitBranch, Phone, Database } from 'lucide-react';
 
 const stagger = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };

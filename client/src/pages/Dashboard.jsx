@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../utils/api';
-import { Wallet, CheckCircle, TrendingUp, AlertTriangle, Activity, ArrowUpRight } from 'lucide-react';
+import { Wallet, CheckCircle, TrendingUp, AlertTriangle, Activity, ArrowUpRight, Zap, Clock } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -58,12 +58,39 @@ const fadeUp = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, tra
 
 export default function Dashboard() {
   const [m, setM] = useState(null);
+  const [autoPilot, setAutoPilot] = useState({ enabled: false, nextRunTime: null, intervalHours: 6 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getMetrics().then(setM).catch(console.error).finally(() => setLoading(false));
+    Promise.all([
+      api.getMetrics(),
+      api.getSchedulerStatus().catch(() => ({ enabled: false, nextRunTime: null }))
+    ]).then(([metricsData, schedulerData]) => {
+      setM(metricsData);
+      setAutoPilot(schedulerData);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
+  
+  const toggleAutoPilot = async () => {
+    try {
+      const res = await api.toggleScheduler(!autoPilot.enabled, autoPilot.intervalHours);
+      setAutoPilot(res);
+    } catch (err) {
+      console.error("Failed to toggle auto-pilot", err);
+    }
+  };
+
+  const handleIntervalChange = async (e) => {
+    const newInterval = parseInt(e.target.value, 10);
+    try {
+      const res = await api.toggleScheduler(autoPilot.enabled, newInterval);
+      setAutoPilot(res);
+    } catch (err) {
+      console.error("Failed to update interval", err);
+    }
+  };
+  
   const recoveredAmt = useCountUp(m ? m.total_recovered / 100 : 0);
   const recoveryRate = useCountUp(m ? m.recovery_rate : 0, 800);
 
@@ -102,11 +129,56 @@ export default function Dashboard() {
       className="px-6 py-8 max-w-[1440px] mx-auto relative z-10"
       variants={stagger} initial="hidden" animate="visible"
     >
+      
       {/* Page Header */}
-      <motion.div variants={fadeUp} className="mb-8">
-        <h1 className="text-2xl font-bold mb-1 text-white">Dashboard</h1>
-        <p className="text-zinc-500 text-sm">Revenue recovery intelligence at a glance</p>
+      <motion.div variants={fadeUp} className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-1 text-white">Dashboard</h1>
+          <p className="text-zinc-500 text-sm">Revenue recovery intelligence at a glance</p>
+        </div>
+        
+        {/* Auto-Pilot Toggle */}
+        <div className="flex items-center gap-4 bg-zinc-900/60 p-3 px-5 rounded-2xl border border-white/5 backdrop-blur-xl">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <Zap className={`w-4 h-4 ${autoPilot.enabled ? "text-amber-400" : "text-zinc-500"}`} />
+              <span className="text-sm font-bold text-white">Auto-Pilot</span>
+              {autoPilot.enabled && (
+                <span className="relative flex h-2 w-2 ml-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
+              <Clock className="w-3 h-3" />
+              {autoPilot.enabled && autoPilot.nextRunTime
+                ? `Next run: ${new Date(autoPilot.nextRunTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : "Disabled"}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 border-l border-white/10 pl-4 ml-1">
+            <select
+              value={autoPilot.intervalHours || 6}
+              onChange={handleIntervalChange}
+              className="bg-zinc-800 text-xs text-zinc-300 font-medium rounded-lg px-2 py-1.5 border border-white/10 outline-none focus:border-emerald-500/50 appearance-none cursor-pointer"
+            >
+              <option className="bg-zinc-900 text-zinc-300" value={2}>Every 2h</option>
+              <option className="bg-zinc-900 text-zinc-300" value={6}>Every 6h</option>
+              <option className="bg-zinc-900 text-zinc-300" value={12}>Every 12h</option>
+              <option className="bg-zinc-900 text-zinc-300" value={24}>Every 24h</option>
+            </select>
+            <button
+              onClick={toggleAutoPilot}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${autoPilot.enabled ? "bg-emerald-500" : "bg-zinc-700"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoPilot.enabled ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
       </motion.div>
+  
 
       {/* ─── Hero Metric ─── */}
       <motion.div
@@ -157,6 +229,25 @@ export default function Dashboard() {
             <div className="text-xs text-zinc-600 mt-2 ml-12">{s.sub}</div>
           </motion.div>
         ))}
+      </motion.div>
+
+      {/* ─── Timeline Chart ─── */}
+      <motion.div variants={fadeUp} className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5 mb-6">
+        <h2 className="text-[0.7rem] font-bold text-zinc-400 uppercase tracking-widest mb-6">Recovery Over Time</h2>
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={m.recovery_over_time || []} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={10} />
+            <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v/100/1000).toFixed(0)}k`} />
+            <Tooltip {...tooltipStyle} formatter={(v) => `₹${(v/100).toLocaleString('en-IN')}`} labelStyle={{ color: '#ffffff' }} />
+            <Area type="monotone" dataKey="amount" stroke="#34d399" strokeWidth={3} fillOpacity={1} fill="url(#colorAmount)" activeDot={{ r: 6, fill: '#34d399', stroke: '#000', strokeWidth: 2 }} />
+          </AreaChart>
+        </ResponsiveContainer>
       </motion.div>
 
       {/* ─── Charts ─── */}

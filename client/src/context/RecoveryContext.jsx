@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { useToast } from './ToastContext';
 
 const RecoveryContext = createContext(null);
 
@@ -11,6 +12,7 @@ export function RecoveryProvider({ children }) {
   const [done, setDone] = useState(false);
   const [results, setResults] = useState(null);
   const [activeNode, setActiveNode] = useState(null);
+  const { addToast } = useToast();
   const eventSourceRef = useRef(null);
   const logCountRef = useRef(0);
 
@@ -62,6 +64,14 @@ export function RecoveryProvider({ children }) {
     es.addEventListener('complete', (e) => {
       const d = JSON.parse(e.data);
       addLog('success', `Recovery complete! Processed ${d.totalProcessed || 0} transactions. Recovered INR ${((d.totalRecovered || 0) / 100).toLocaleString('en-IN')} (${d.recoveryRate || 0}% rate)`);
+      
+      // FIRE TOAST
+      if (d.totalRecovered > 0) {
+        addToast(`✓ ₹${((d.totalRecovered || 0) / 100).toLocaleString('en-IN')} recovered automatically!`, 'success');
+      } else {
+        addToast(`Recovery completed. No funds recovered this time.`, 'info');
+      }
+
       setResults(d);
       setDone(true);
       setRunning(false);

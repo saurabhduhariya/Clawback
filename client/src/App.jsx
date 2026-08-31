@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { RecoveryProvider } from './context/RecoveryContext';
+import { ToastProvider } from './context/ToastContext';
 import Navbar from './components/Navbar';
 import PageTransition from './components/PageTransition';
 import Landing from './pages/Landing';
@@ -34,9 +35,11 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <RecoveryProvider>
-        <AnimatedRoutes />
-      </RecoveryProvider>
+      <ToastProvider>
+        <RecoveryProvider>
+          <AnimatedRoutes />
+        </RecoveryProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

@@ -50,6 +50,33 @@ router.get("/", async (req, res) => {
     // Recent runs
     const recentRuns = await queryAll("SELECT * FROM recovery_runs ORDER BY started_at DESC LIMIT 5");
 
+    // Recovery over time (last 14 days filled with 0s for empty days)
+    const rawRecoveryOverTime = await queryAll(`
+      SELECT TO_CHAR(updated_at, 'YYYY-MM-DD') as date, SUM(recovered_amount) as amount
+      FROM transactions
+      WHERE status = 'recovered'
+      GROUP BY TO_CHAR(updated_at, 'YYYY-MM-DD')
+      ORDER BY date ASC
+      LIMIT 30
+    `);
+
+    const recoveryOverTime = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      // Format as YYYY-MM-DD
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      const match = rawRecoveryOverTime.find(r => r.date === dateStr);
+      recoveryOverTime.push({
+        date: dateStr,
+        amount: match ? Number(match.amount) : 0
+      });
+    }
+
     const totalAtRisk = Number(total.total_amount) || 0;
     const totalRecovered = Number(recovered.total) || 0;
     const recoveryRate = totalAtRisk > 0 ? parseFloat(((totalRecovered / totalAtRisk) * 100).toFixed(1)) : 0;
@@ -68,6 +95,7 @@ router.get("/", async (req, res) => {
       by_reason: byReason,
       by_action: byAction,
       recent_runs: recentRuns,
+      recovery_over_time: recoveryOverTime,
     });
   } catch (err) {
     console.error("Metrics error:", err);

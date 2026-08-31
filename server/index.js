@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { getDb } = require('./db/connection');
+const { router: schedulerRouter, startScheduler } = require('./services/scheduler');
 
 const app = express();
 app.use(cors());
@@ -19,12 +20,14 @@ app.use('/api/metrics', require('./routes/metrics'));
 app.use('/api/audit', require('./routes/audit'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/scheduler', schedulerRouter);
 
 // Initialize DB then start server
 const PORT = process.env.PORT || 3001;
 
 getDb().then(() => {
   app.listen(PORT, () => {
+    startScheduler();
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/api/health`);
     console.log(`Transactions: http://localhost:${PORT}/api/transactions`);

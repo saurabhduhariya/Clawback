@@ -30,4 +30,8 @@ export const api = {
 
   // Audit
   getAuditTrail: (txnId) => fetchApi(`/audit/${txnId}`),
+
+  // Scheduler
+  getSchedulerStatus: () => fetchApi("/scheduler/status"),
+  toggleScheduler: (enable, interval) => fetchApi("/scheduler/toggle", { method: "POST", body: JSON.stringify({ enable, interval }) }),
 };
