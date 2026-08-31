@@ -21,6 +21,7 @@ app.use('/api/audit', require('./routes/audit'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/scheduler', schedulerRouter);
+app.use('/api/export', require('./routes/export'));
 
 // Initialize DB then start server
 const PORT = process.env.PORT || 3001;

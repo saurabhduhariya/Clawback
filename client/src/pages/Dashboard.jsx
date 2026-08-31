@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../utils/api';
-import { Wallet, CheckCircle, TrendingUp, AlertTriangle, Activity, ArrowUpRight, Zap, Clock, Filter, ChevronRight } from 'lucide-react';
+import { Wallet, CheckCircle, TrendingUp, AlertTriangle, Activity, ArrowUpRight, Zap, Clock, Filter, ChevronRight, Download } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -137,8 +137,18 @@ export default function Dashboard() {
           <p className="text-zinc-500 text-sm">Revenue recovery intelligence at a glance</p>
         </div>
         
-        {/* Auto-Pilot Toggle */}
-        <div className="flex items-center gap-4 bg-zinc-900/60 p-3 px-5 rounded-2xl border border-white/5 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          {/* Export Report Button */}
+          <button 
+            onClick={() => window.open('http://localhost:3001/api/export/csv', '_blank')}
+            className="hidden md:flex items-center gap-2 px-4 py-3 bg-zinc-900/60 text-zinc-300 border border-white/5 rounded-2xl font-semibold text-sm hover:bg-white/5 hover:text-white transition-colors backdrop-blur-xl"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </button>
+          
+          {/* Auto-Pilot Toggle */}
+          <div className="flex items-center gap-4 bg-zinc-900/60 p-3 px-5 rounded-2xl border border-white/5 backdrop-blur-xl">
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <Zap className={`w-4 h-4 ${autoPilot.enabled ? "text-amber-400" : "text-zinc-500"}`} />
@@ -176,6 +186,7 @@ export default function Dashboard() {
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoPilot.enabled ? "translate-x-6" : "translate-x-1"}`} />
             </button>
           </div>
+        </div>
         </div>
       </motion.div>
   
