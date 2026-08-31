@@ -7,7 +7,37 @@ router.get('/', async (req, res) => {
   try {
     const { status, type, search } = req.query;
 
-    let sql = 'SELECT * FROM transactions WHERE 1=1';
+    let sql = `SELECT t.*,
+      LEAST(100, GREATEST(0,
+        LEAST(COALESCE(t.attempt_count, 0) * 10, 30) +
+        CASE 
+          WHEN t.amount > 5000000 THEN 25
+          WHEN t.amount > 1000000 THEN 18
+          WHEN t.amount > 500000  THEN 12
+          WHEN t.amount > 100000  THEN 6
+          ELSE 3
+        END +
+        CASE t.failure_reason
+          WHEN 'mandate_revoked' THEN 25
+          WHEN 'invoice_overdue_60' THEN 22
+          WHEN 'invoice_overdue_30' THEN 15
+          WHEN 'expired_card' THEN 18
+          WHEN 'authentication_failed' THEN 14
+          WHEN 'card_declined' THEN 12
+          WHEN 'insufficient_funds' THEN 10
+          WHEN 'user_abandoned' THEN 8
+          WHEN 'session_timeout' THEN 5
+          WHEN 'network_timeout' THEN 3
+          ELSE 10
+        END +
+        CASE
+          WHEN t.created_at < NOW() - INTERVAL '30 days' THEN 20
+          WHEN t.created_at < NOW() - INTERVAL '14 days' THEN 14
+          WHEN t.created_at < NOW() - INTERVAL '7 days' THEN 8
+          ELSE 3
+        END
+      )) as risk_score
+    FROM transactions t WHERE 1=1`;
     const params = [];
 
     if (status && status !== 'all') {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../utils/api';
-import { FolderOpen, RefreshCw, Search, ChevronRight } from 'lucide-react';
+import { FolderOpen, RefreshCw, Search, ChevronRight, ShieldAlert } from 'lucide-react';
 
 const fmt = (p) => '₹' + (p / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
@@ -88,7 +88,8 @@ export default function Transactions() {
                   <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Amount</th>
                   <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Type</th>
                   <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Recovered</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Rate</th>
+                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Attempts</th>
+                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Risk</th>
                   <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Status</th>
                   <th className="px-5 py-4 w-8" />
                 </tr>
@@ -109,13 +110,41 @@ export default function Transactions() {
                     </td>
                     <td className="px-5 py-4 font-mono text-sm text-white">{fmt(r.amount)}</td>
                     <td className="px-5 py-4 text-sm text-zinc-400 capitalize">{r.type.replace('_', ' ')}</td>
-                    <td className="px-5 py-4 text-sm font-semibold text-emerald-400">{fmt(r.total_recovered)}</td>
-                    <td className="px-5 py-4 text-sm font-semibold text-white">{r.recovery_rate}%</td>
+                    <td className="px-5 py-4 text-sm font-semibold text-emerald-400">{r.status === 'recovered' ? fmt(r.amount) : '-'}</td>
+                    <td className="px-5 py-4 text-sm font-semibold text-white">{r.attempt_count || 0}</td>
+                    <td className="px-5 py-4">
+                      {(() => {
+                        if (r.status === 'recovered') {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[0.6rem] font-bold border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                              <ShieldAlert className="w-3 h-3" />
+                              Resolved
+                            </span>
+                          );
+                        }
+                        const rs = Number(r.risk_score) || 0;
+                        const color = rs > 70 ? 'text-red-400 bg-red-500/10 border-red-500/20' 
+                                    : rs > 40 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' 
+                                    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                        const label = rs > 70 ? 'High' : rs > 40 ? 'Med' : 'Low';
+                        return (
+                          <div className="group relative">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[0.6rem] font-bold border ${color}`}>
+                              <ShieldAlert className="w-3 h-3" />
+                              {rs}
+                            </span>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-zinc-800 border border-white/10 rounded-lg text-[10px] text-zinc-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
+                              AI Risk Score: {rs}/100 ({label})
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-5 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[0.6rem] font-bold uppercase tracking-wider ${
-                        r.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800/60 text-zinc-400'
+                        r.status === 'recovered' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800/60 text-zinc-400'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${r.status === 'completed' ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${r.status === 'recovered' ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
                         {r.status}
                       </span>
                     </td>

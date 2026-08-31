@@ -141,12 +141,7 @@ export default function RecoveryRun() {
     startRecovery(params.limit);
   };
   
-  useEffect(() => {
-    if (done) {
-      const timer = setTimeout(() => navigate('/transactions'), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [done, navigate]);
+
 
   return (
     <motion.div

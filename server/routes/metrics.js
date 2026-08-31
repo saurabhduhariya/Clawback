@@ -77,6 +77,27 @@ router.get("/", async (req, res) => {
       });
     }
 
+    // Recovery funnel data
+    const funnelTotal = Number(total.count);
+    const funnelDiagnosed = Number((await queryOne(
+      "SELECT COUNT(DISTINCT transaction_id) as cnt FROM recovery_actions"
+    )).cnt || 0);
+    const funnelPassedGuardrails = Number((await queryOne(
+      "SELECT COUNT(DISTINCT transaction_id) as cnt FROM recovery_actions WHERE guardrail_check = 'passed'"
+    )).cnt || 0);
+    const funnelExecuted = Number((await queryOne(
+      "SELECT COUNT(DISTINCT transaction_id) as cnt FROM recovery_actions WHERE chosen_action IS NOT NULL AND chosen_action != 'none'"
+    )).cnt || 0);
+    const funnelRecovered = Number(recovered.count || 0);
+
+    const funnel = [
+      { stage: 'Failed', count: funnelTotal, color: '#ef4444' },
+      { stage: 'Diagnosed', count: funnelDiagnosed, color: '#f59e0b' },
+      { stage: 'Passed Guardrails', count: funnelPassedGuardrails, color: '#3b82f6' },
+      { stage: 'Executed', count: funnelExecuted, color: '#8b5cf6' },
+      { stage: 'Recovered', count: funnelRecovered, color: '#10b981' },
+    ];
+
     const totalAtRisk = Number(total.total_amount) || 0;
     const totalRecovered = Number(recovered.total) || 0;
     const recoveryRate = totalAtRisk > 0 ? parseFloat(((totalRecovered / totalAtRisk) * 100).toFixed(1)) : 0;
@@ -96,6 +117,7 @@ router.get("/", async (req, res) => {
       by_action: byAction,
       recent_runs: recentRuns,
       recovery_over_time: recoveryOverTime,
+      funnel: funnel,
     });
   } catch (err) {
     console.error("Metrics error:", err);

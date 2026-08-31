@@ -2,6 +2,7 @@ const { StateGraph, END } = require("@langchain/langgraph");
 const RecoveryState = require("./state");
 
 const detect = require("./nodes/detect");
+const riskScore = require("./nodes/riskScore");
 const diagnose = require("./nodes/diagnose");
 const checkGuardrails = require("./nodes/checkGuardrails");
 const pickStrategy = require("./nodes/pickStrategy");
@@ -12,6 +13,7 @@ const updateState = require("./nodes/updateState");
 function buildRecoveryGraph() {
   const graph = new StateGraph(RecoveryState)
     .addNode("detect", detect)
+    .addNode("calculateRiskScore", riskScore)
     .addNode("diagnose", diagnose)
     .addNode("checkGuardrails", checkGuardrails)
     .addNode("pickStrategy", pickStrategy)
@@ -21,7 +23,8 @@ function buildRecoveryGraph() {
 
     // Linear flow
     .addEdge("__start__", "detect")
-    .addEdge("detect", "diagnose")
+    .addEdge("detect", "calculateRiskScore")
+    .addEdge("calculateRiskScore", "diagnose")
     .addEdge("diagnose", "checkGuardrails")
 
     // CONDITIONAL: guardrails decide whether to proceed or skip

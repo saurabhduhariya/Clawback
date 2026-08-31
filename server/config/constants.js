@@ -65,6 +65,17 @@ module.exports = {
     },
   },
 
+
+  // ============================================
+  // MULTI-CHANNEL OUTREACH PREFERENCES
+  // Priority order per transaction type
+  // ============================================
+  CHANNEL_PREFERENCE: {
+    payment:      ['email', 'whatsapp', 'sms'],
+    subscription: ['whatsapp', 'email', 'sms'],
+    invoice:      ['email', 'sms'],
+    checkout:     ['whatsapp', 'email'],
+  },
   // Failure reasons that should never be retried
   NON_RETRYABLE_REASONS: ['mandate_revoked', 'invoice_overdue_60'],
 

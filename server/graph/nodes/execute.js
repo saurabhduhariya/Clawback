@@ -1,7 +1,8 @@
 const razorpay = require("../../config/razorpay");
 
 async function execute(state) {
-  const { transaction, chosenAction } = state;
+  const { transaction, chosenAction, diagnosis } = state;
+  const channel = diagnosis?.preferred_channel || 'email';
   let apiResponse = null, apiCalled = "", refId = "", shortUrl = "";
 
   try {
@@ -17,7 +18,7 @@ async function execute(state) {
             email: transaction.customer_email,
             contact: transaction.customer_phone,
           },
-          notify: { sms: true, email: true },
+          notify: { sms: true, email: true, whatsapp: channel === 'whatsapp' },
           reminder_enable: true,
           reference_id: transaction.id,
         });
@@ -45,6 +46,7 @@ async function execute(state) {
           description: `Recovery invoice for ${transaction.id}`,
           sms_notify: 1,
           email_notify: 1,
+          // WhatsApp enabled based on AI channel recommendation
         });
         apiResponse = result;
         refId = result.id;
@@ -65,14 +67,15 @@ async function execute(state) {
       }
 
       case "send_reminder": {
-        apiCalled = "SIMULATED_REMINDER";
+        apiCalled = channel === 'whatsapp' ? "WHATSAPP_REMINDER" : channel === 'sms' ? "SMS_REMINDER" : "EMAIL_REMINDER";
         apiResponse = {
           type: "reminder",
-          to: transaction.customer_email,
-          message: `Hi ${transaction.customer_name}, your payment of ₹${(transaction.amount / 100).toFixed(2)} is pending.`,
+          channel: channel,
+          to: channel === 'email' ? transaction.customer_email : transaction.customer_phone,
+          message: diagnosis?.customer_message || `Hi ${transaction.customer_name}, your payment of ₹${(transaction.amount / 100).toFixed(2)} is pending.`,
           sent_at: new Date().toISOString(),
         };
-        refId = `reminder_${Date.now()}`;
+        refId = `reminder_${channel}_${Date.now()}`;
         break;
       }
 

@@ -56,6 +56,7 @@ export function RecoveryProvider({ children }) {
       try {
         const d = JSON.parse(e.data);
         addLog('error', d.error || 'Unknown error');
+        addToast(d.error || 'Recovery error occurred', 'error');
       } catch {
         // SSE connection-level error (server down, etc.)
       }
@@ -84,7 +85,7 @@ export function RecoveryProvider({ children }) {
       // Connection closed — job may still be running, SSE just dropped.
       // Don't set running=false here.
     };
-  }, [addLog]);
+  }, [addLog, addToast]);
 
   /**
    * Start a new recovery run.

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../utils/api';
-import { Wallet, CheckCircle, TrendingUp, AlertTriangle, Activity, ArrowUpRight, Zap, Clock } from 'lucide-react';
+import { Wallet, CheckCircle, TrendingUp, AlertTriangle, Activity, ArrowUpRight, Zap, Clock, Filter, ChevronRight } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -249,6 +249,98 @@ export default function Dashboard() {
           </AreaChart>
         </ResponsiveContainer>
       </motion.div>
+
+
+      {/* ─── Recovery Pipeline ─── */}
+      {m.funnel && m.funnel.length > 0 && (
+        <motion.div variants={fadeUp} className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/5 mb-6">
+          <div className="flex items-center gap-2 mb-8">
+            <Filter className="w-4 h-4 text-zinc-500" />
+            <h2 className="text-[0.7rem] font-bold text-zinc-400 uppercase tracking-widest">Recovery Pipeline</h2>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center justify-between w-full relative gap-6 md:gap-0">
+            {/* Background connection line (desktop only) */}
+            <div className="hidden md:block absolute top-10 left-[5%] right-[5%] h-[2px] bg-gradient-to-r from-zinc-800 via-zinc-700/50 to-zinc-800 -translate-y-1/2 z-0" />
+            
+            {m.funnel.map((stage, i) => {
+              const maxCount = Math.max(...m.funnel.map(s => s.count), 1);
+              const pct = (stage.count / maxCount) * 100;
+              const isLast = i === m.funnel.length - 1;
+              
+              return (
+                <div key={stage.stage} className="relative z-10 flex flex-col items-center flex-1 w-full md:w-auto">
+                  
+                  {/* The Node */}
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: i * 0.1, duration: 0.5, type: "spring", bounce: 0.4 }}
+                    className="flex items-center justify-center relative group w-full md:w-auto"
+                  >
+                    <div 
+                      className="w-full max-w-[120px] md:w-20 md:h-20 rounded-2xl flex flex-col items-center justify-center border transition-all duration-300 relative bg-zinc-950/80 shadow-2xl backdrop-blur-md py-4 md:py-0"
+                      style={{ 
+                        borderColor: `${stage.color}30`,
+                        boxShadow: `0 10px 30px -10px ${stage.color}20, inset 0 0 20px ${stage.color}05` 
+                      }}
+                    >
+                      <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" 
+                           style={{ background: `radial-gradient(circle at center, ${stage.color}15 0%, transparent 70%)` }} />
+                           
+                      <span className="text-2xl md:text-xl font-black text-white relative z-10 tracking-tight">{stage.count}</span>
+                    </div>
+
+                    {/* Chevron (mobile) */}
+                    {!isLast && (
+                      <div className="md:hidden mt-4 mb-2">
+                        <ChevronRight className="w-5 h-5 text-zinc-700 rotate-90" />
+                      </div>
+                    )}
+                  </motion.div>
+                  
+                  {/* Label */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 + 0.2 }}
+                    className="mt-4 md:mt-5 text-center"
+                  >
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block whitespace-nowrap">{stage.stage}</span>
+                    <div className="mt-1.5 flex items-center justify-center gap-1.5">
+                      <div className="h-1 w-8 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: stage.color }} />
+                      </div>
+                      <span className="text-[9px] text-zinc-500 font-mono">{pct.toFixed(0)}%</span>
+                    </div>
+                  </motion.div>
+                </div>
+              );
+            })}
+          </div>
+
+          {m.funnel.length >= 2 && (
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+              className="flex items-center justify-center gap-3 mt-10 pt-6 border-t border-white/5"
+            >
+              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 px-4 py-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                <span className="text-[11px] text-zinc-400 font-semibold uppercase tracking-widest">Net Conversion</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-black text-emerald-400">
+                    {m.funnel[0].count > 0
+                      ? ((m.funnel[m.funnel.length - 1].count / m.funnel[0].count) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                  <span className="text-xs font-medium text-zinc-600 bg-black/30 px-2 py-0.5 rounded-md">
+                    {m.funnel[m.funnel.length - 1].count} of {m.funnel[0].count} recovered
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
 
       {/* ─── Charts ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
