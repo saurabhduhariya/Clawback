@@ -189,7 +189,7 @@ export default function Landing() {
             
             {/* Left: Brand */}
             <div className="flex items-center z-10">
-              <span className="text-lg font-bold text-zinc-200 tracking-tight">RecoverAI</span>
+              <span className="text-lg font-bold text-zinc-200 tracking-tight">Clawback</span>
             </div>
             
             {/* Center: Navigation without badge */}
@@ -368,7 +368,7 @@ export default function Landing() {
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-3">
                 
-                <span className="font-semibold text-sm">RecoverAI</span>
+                <span className="font-semibold text-sm">Clawback</span>
                 <span className="text-zinc-500 text-sm">— Built for Razorpay Buildathon 2026</span>
               </div>
               <div className="flex gap-6 text-sm">

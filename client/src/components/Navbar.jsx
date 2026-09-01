@@ -19,7 +19,7 @@ export default function Navbar() {
           <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
             <Activity className="w-3.5 h-3.5 text-black" />
           </div>
-          <span className="text-sm font-bold text-zinc-200 group-hover:text-white transition-colors">RecoverAI</span>
+          <span className="text-sm font-bold text-zinc-200 group-hover:text-white transition-colors">Clawback</span>
         </NavLink>
 
         {/* Center Nav Pill */}
@@ -49,13 +49,7 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* CTA */}
-        <NavLink
-          to="/recover"
-          className="bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 px-5 py-2 rounded-lg text-[10px] font-bold tracking-[0.15em] uppercase transition-all inline-flex items-center gap-1.5 shadow-sm"
-        >
-          <span className="text-zinc-500">▸</span> Open Dashboard
-        </NavLink>
+        
       </div>
 
       {/* Mobile bottom bar */}

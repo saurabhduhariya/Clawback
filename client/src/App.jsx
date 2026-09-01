@@ -14,11 +14,12 @@ import RecoverBot from './components/RecoverBot';
 function AnimatedRoutes() {
   const location = useLocation();
   const isLanding = location.pathname === '/';
+  const isDashboard = location.pathname === '/dashboard';
 
   return (
     <div className="min-h-screen">
       {!isLanding && <RecoverBot />}
-      {!isLanding && <Navbar />}
+      {!isLanding && !isDashboard && <Navbar />}
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Landing />} />

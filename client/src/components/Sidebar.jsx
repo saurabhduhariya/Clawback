@@ -39,7 +39,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.15 }}
                 className="text-sm font-bold text-white whitespace-nowrap"
               >
-                RecoverAI
+                Clawback
               </motion.span>
             )}
           </AnimatePresence>
