@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { api } from '../utils/api';
+import { useRecovery } from '../context/RecoveryContext';
 import {
   Activity, Bot, Brain, ChevronDown, Clock3, Database, Gauge, GitBranch,
   Menu, Phone, Search, Shield, Zap
@@ -56,7 +56,6 @@ function makeEdges(statuses) {
   }));
 }
 
-/* Map LangGraph node names to our pipeline stage IDs */
 const nodeToStage = {
   detectFailures: 'detect', calculateRiskScore: 'risk', diagnose: 'diagnose',
   guardrails: 'guardrails', pickStrategy: 'strategy', executeRecovery: 'execute',
@@ -67,13 +66,27 @@ export default function RecoveryRun() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileNav, setMobileNav] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [activeStage, setActiveStage] = useState(-1);
   const [count, setCount] = useState('10');
   const [days, setDays] = useState('7 days');
   const [autoExecute, setAutoExecute] = useState(true);
-  const [logs, setLogs] = useState([]);
   const logRef = useRef(null);
+
+  // Use global context instead of local state!
+  const { logs, running, done, activeNode, startRecovery, reconnect, checkExistingJob } = useRecovery();
+
+  useEffect(() => {
+    reconnect();
+    checkExistingJob();
+  }, [reconnect, checkExistingJob]);
+
+  // Derive active stage index from context
+  const activeStage = useMemo(() => {
+    if (done) return stagesDef.length;
+    if (activeNode && nodeToStage[activeNode]) {
+      return stagesDef.findIndex(s => s.id === nodeToStage[activeNode]);
+    }
+    return running ? 0 : -1;
+  }, [activeNode, done, running]);
 
   const statuses = useMemo(() =>
     Object.fromEntries(stagesDef.map((s, i) => [s.id, i < activeStage ? 'done' : i === activeStage ? 'active' : 'pending']))
@@ -82,64 +95,14 @@ export default function RecoveryRun() {
   const nodes = useMemo(() => makeNodes(statuses), [statuses]);
   const edges = useMemo(() => makeEdges(statuses), [statuses]);
 
-  const addLog = useCallback((message, type = 'info') =>
-    setLogs(c => [...c, { time: new Date().toLocaleTimeString('en-GB', { hour12: false }), message, type }])
-  , []);
-
   useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
+    if (logRef.current) {
+      logRef.current.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [logs]);
 
-  const runAgent = async () => {
-    setLogs([]);
-    setActiveStage(0);
-    setRunning(true);
-    addLog(`Agent initialized for ${count} failed transactions (${days})`, 'info');
-
-    try {
-      const limit = parseInt(count, 10);
-      const daysBack = parseInt(days.replace(/[^\d]/g, ''), 10);
-      const res = await fetch(`http://localhost:3001/api/recover?limit=${limit}&daysBack=${daysBack}`);
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const ev = JSON.parse(line.slice(6));
-            if (ev.type === 'node_start' && ev.node) {
-              const stageId = nodeToStage[ev.node];
-              if (stageId) {
-                const idx = stagesDef.findIndex(s => s.id === stageId);
-                if (idx >= 0) setActiveStage(idx);
-              }
-              addLog(`${ev.node} node started`, 'node_start');
-            } else if (ev.type === 'node_end' && ev.node) {
-              addLog(`${ev.node} completed successfully`, 'success');
-            } else if (ev.type === 'result') {
-              setActiveStage(stagesDef.length);
-              addLog(`Recovery run completed. ${ev.data?.recoveredCount || 0} transactions recovered.`, 'success');
-            } else if (ev.type === 'error') {
-              addLog(`Error: ${ev.message || 'Unknown error'}`, 'error');
-            } else if (ev.type === 'log') {
-              addLog(ev.message || JSON.stringify(ev), ev.level || 'info');
-            }
-          } catch {}
-        }
-      }
-    } catch (err) {
-      addLog(`Connection error: ${err.message}`, 'error');
-    } finally {
-      setRunning(false);
-    }
+  const runAgent = () => {
+    startRecovery(parseInt(count, 10));
   };
 
   return (
@@ -148,7 +111,9 @@ export default function RecoveryRun() {
 
       <header className="topbar">
         <button className="mobile-menu" aria-label="Toggle navigation" onClick={() => setMobileNav(!mobileNav)}><Menu /></button>
-        <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}><span className="brand-mark"><Bot /></span><span>Clawback</span><span className="brand-divider" /><span className="brand-subtitle">AI revenue recovery</span></div>
+        <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <span className="brand-mark"><Bot /></span><span>Clawback</span><span className="brand-divider" /><span className="brand-subtitle">AI revenue recovery</span>
+        </div>
         <nav className={mobileNav ? 'topnav open' : 'topnav'}>
           <a className={location.pathname === '/dashboard' ? 'active' : ''} onClick={() => navigate('/dashboard')} style={{cursor:'pointer'}}>Overview</a>
           <a className={location.pathname === '/transactions' ? 'active' : ''} onClick={() => navigate('/transactions')} style={{cursor:'pointer'}}>Transactions</a>
@@ -199,7 +164,7 @@ export default function RecoveryRun() {
               <span>Real-time execution flow</span>
             </div>
             <span className="pipeline-state">
-              <i className={running ? 'running' : ''} /> {running ? 'Processing' : activeStage >= stagesDef.length ? 'Complete' : 'Ready'}
+              <i className={running ? 'running' : ''} /> {running ? 'Processing' : done ? 'Complete' : 'Ready'}
             </span>
           </div>
           <div className="flow-wrap">
@@ -221,8 +186,8 @@ export default function RecoveryRun() {
           <div className="log-feed" ref={logRef}>
             {logs.length ? logs.map((log, i) => (
               <div className="log-row" key={`${log.time}-${i}`}>
-                <time>[{log.time}]</time>
-                <span className={`log-${log.type}`}>{log.message}</span>
+                <time>[{log.time || new Date().toLocaleTimeString('en-US',{hour12:false})}]</time>
+                <span className={`log-${log.type === 'highlight' ? 'success' : log.type}`}>{log.msg || log.message}</span>
               </div>
             )) : (
               <div className="log-empty"><Activity /><span>Waiting for agent to start...</span></div>
