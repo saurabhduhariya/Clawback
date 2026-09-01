@@ -1,163 +1,168 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../utils/api';
-import { FolderOpen, RefreshCw, Search, ChevronRight, ShieldAlert } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, Clock3, Download, FolderOpen, Menu, Search, ShieldAlert } from 'lucide-react';
 
-const fmt = (p) => '₹' + (p / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const formatINR = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
 
-function TableSkeleton() {
-  return (
-    <div className="space-y-2 p-4">
-      {[1,2,3,4,5].map(i => (
-        <div key={i} className="skeleton h-14 rounded-lg" style={{ animationDelay: `${i * 0.1}s` }} />
-      ))}
-    </div>
-  );
+function riskLevel(score) {
+  if (score >= 70) return 'High';
+  if (score >= 40) return 'Med';
+  return 'Low';
 }
 
-const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
-const fadeUp = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
-
 export default function Transactions() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mobileNav, setMobileNav] = useState(false);
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('All Status');
+  const [autoPilot, setAutoPilot] = useState({ enabled: false, intervalHours: 6 });
 
   useEffect(() => {
-    api.getTransactions().then(setData).catch(console.error).finally(() => setLoading(false));
+    Promise.all([
+      api.getTransactions(),
+      api.getSchedulerStatus().catch(() => ({ enabled: false, intervalHours: 6 }))
+    ]).then(([txns, sched]) => {
+      setTransactions(txns);
+      setAutoPilot(sched);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  const filtered = data
-    .filter(t => filter === 'all' || t.status === filter)
-    .filter(t => !search || t.customer_name?.toLowerCase().includes(search.toLowerCase()) || t.id?.toLowerCase().includes(search.toLowerCase()));
+  const toggleAutoPilot = async () => {
+    try {
+      const res = await api.toggleScheduler(!autoPilot.enabled, autoPilot.intervalHours);
+      setAutoPilot(res);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleIntervalChange = async (e) => {
+    const hours = parseInt(e.target.value.replace(/[^\d]/g, ''), 10);
+    try {
+      const res = await api.toggleScheduler(autoPilot.enabled, hours);
+      setAutoPilot(res);
+    } catch (err) { console.error(err); }
+  };
+
+  const exportCsv = () => window.open('http://localhost:3001/api/export/csv', '_blank');
+
+  const filtered = useMemo(() => transactions.filter((t) => {
+    const name = (t.customer_name || t.customer || '').toLowerCase();
+    const email = (t.customer_email || t.email || '').toLowerCase();
+    const matchesQuery = `${name} ${email}`.includes(query.toLowerCase());
+    const txStatus = (t.status || '').toLowerCase();
+    const filterStatus = status.toLowerCase();
+    return matchesQuery && (status === 'All Status' || txStatus === filterStatus);
+  }), [transactions, query, status]);
+
+  const intervalLabel = `Every ${autoPilot.intervalHours || 6}h`;
 
   return (
-    <motion.div
-      className="px-6 py-8 max-w-[1440px] mx-auto relative z-10"
-      variants={stagger} initial="hidden" animate="visible"
-    >
-      {/* Header */}
-      <motion.div variants={fadeUp} className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold mb-1 text-white">Transactions</h1>
-          <p className="text-zinc-500 text-sm">Monitor and recover failed payments</p>
+    <main className="dashboard-shell transactions-shell">
+      <div className="dashboard-glow glow-one" />
+      <header className="topbar">
+        <button className="mobile-menu" aria-label="Toggle navigation" onClick={() => setMobileNav(!mobileNav)}><Menu /></button>
+        <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}><span className="brand-mark"><Bot /></span><span>Clawback</span><span className="brand-divider" /><span className="brand-subtitle">AI revenue recovery</span></div>
+        <nav className={mobileNav ? 'topnav open' : 'topnav'}>
+          <a className={location.pathname === '/dashboard' ? 'active' : ''} onClick={() => navigate('/dashboard')} style={{cursor:'pointer'}}>Overview</a>
+          <a className={location.pathname === '/transactions' ? 'active' : ''} onClick={() => navigate('/transactions')} style={{cursor:'pointer'}}>Transactions</a>
+          <a className={location.pathname === '/recover' ? 'active' : ''} onClick={() => navigate('/recover')} style={{cursor:'pointer'}}>Recovery</a>
+        </nav>
+        <div className="top-actions">
+          <button className="export-button" onClick={exportCsv}><Download /> Export CSV</button>
+          <button className={`autopilot ${autoPilot.enabled ? 'is-active' : ''}`} onClick={toggleAutoPilot}>
+            <span className="status-dot" /> Auto-Pilot <span className="autopilot-status">{autoPilot.enabled ? 'Active' : 'Paused'}</span>
+          </button>
+          <label className="interval">
+            <Clock3 />
+            <select aria-label="Recovery interval" value={intervalLabel} onChange={handleIntervalChange}>
+              <option>Every 2h</option><option>Every 6h</option><option>Every 12h</option><option>Every 24h</option>
+            </select>
+            <ChevronDown />
+          </label>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Search */}
-          <div className="relative flex-1 md:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/25 transition-colors"
-            />
-          </div>
-          {/* Filter */}
-          <select
-            className="filter-select bg-black/50 border border-white/10 text-zinc-300 text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-white/25 transition-colors w-36"
-            value={filter} onChange={(e) => setFilter(e.target.value)}
-          >
-            <option className="bg-zinc-900" value="all">All Status</option>
-            <option className="bg-zinc-900" value="pending">Pending</option>
-            <option className="bg-zinc-900" value="recovering">Recovering</option>
-            <option className="bg-zinc-900" value="completed">Completed</option>
-            <option className="bg-zinc-900" value="failed">Failed</option>
-          </select>
-        </div>
-      </motion.div>
+      </header>
 
-      {/* Table */}
-      <motion.div variants={fadeUp} className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl border border-white/5 overflow-hidden">
-        {loading ? <TableSkeleton /> : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-            <FolderOpen className="w-10 h-10 mb-3 opacity-40" />
-            <p className="text-sm font-medium">No transactions found</p>
-            <p className="text-xs text-zinc-600 mt-1">Try adjusting your filters or search query</p>
+      <div className="page-content transactions-content">
+        <section className="transactions-header reveal">
+          <div>
+            <p className="eyebrow"><span className="live-pip" /> Recovery ledger</p>
+            <h1>Transactions</h1>
+            <p>Track every payment recovery attempt across your revenue engine.</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="border-b border-white/5">
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Customer</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Amount</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Type</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Recovered</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Attempts</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Risk</th>
-                  <th className="px-5 py-4 text-[0.65rem] font-bold text-zinc-500 uppercase tracking-widest">Status</th>
-                  <th className="px-5 py-4 w-8" />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r, idx) => (
-                  <motion.tr
-                    key={r.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.03, duration: 0.25 }}
-                    onClick={() => navigate(`/transactions/${r.id}`)}
-                    className="border-b border-white/[0.03] hover:bg-white/[0.03] transition-colors cursor-pointer group"
-                  >
-                    <td className="px-5 py-4">
-                      <div className="font-semibold text-sm text-white">{r.customer_name}</div>
-                      <div className="text-[11px] text-zinc-600 font-mono">{r.customer_email}</div>
-                    </td>
-                    <td className="px-5 py-4 font-mono text-sm text-white">{fmt(r.amount)}</td>
-                    <td className="px-5 py-4 text-sm text-zinc-400 capitalize">{r.type.replace('_', ' ')}</td>
-                    <td className="px-5 py-4 text-sm font-semibold text-emerald-400">{r.status === 'recovered' ? fmt(r.amount) : '-'}</td>
-                    <td className="px-5 py-4 text-sm font-semibold text-white">{r.attempt_count || 0}</td>
-                    <td className="px-5 py-4">
-                      {(() => {
-                        if (r.status === 'recovered') {
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[0.6rem] font-bold border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                              <ShieldAlert className="w-3 h-3" />
-                              Resolved
-                            </span>
-                          );
-                        }
-                        const rs = Number(r.risk_score) || 0;
-                        const color = rs > 70 ? 'text-red-400 bg-red-500/10 border-red-500/20' 
-                                    : rs > 40 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' 
-                                    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-                        const label = rs > 70 ? 'High' : rs > 40 ? 'Med' : 'Low';
-                        return (
-                          <div className="group relative">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[0.6rem] font-bold border ${color}`}>
-                              <ShieldAlert className="w-3 h-3" />
-                              {rs}
-                            </span>
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-zinc-800 border border-white/10 rounded-lg text-[10px] text-zinc-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
-                              AI Risk Score: {rs}/100 ({label})
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[0.6rem] font-bold uppercase tracking-wider ${
-                        r.status === 'recovered' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800/60 text-zinc-400'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${r.status === 'recovered' ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-4">
-                      <ChevronRight className="w-4 h-4 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="transaction-controls">
+            <label className="search-box">
+              <Search />
+              <input aria-label="Search customers" placeholder="Search customers..." value={query} onChange={(e) => setQuery(e.target.value)} />
+            </label>
+            <label className="status-filter">
+              <select aria-label="Status filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option>All Status</option><option>Pending</option><option>Recovering</option><option>Recovered</option><option>Failed</option><option>Overdue</option><option>Abandoned</option>
+              </select>
+              <ChevronDown />
+            </label>
           </div>
-        )}
-      </motion.div>
-    </motion.div>
+        </section>
+
+        <section className="transaction-table-card reveal delay-one">
+          {loading ? (
+            <div className="transaction-skeleton" aria-label="Loading transactions">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div className="skeleton-row" key={i}>
+                  {Array.from({ length: 8 }).map((__, c) => <span className={`skeleton-bar skeleton-${c}`} key={c} />)}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="table-scroll">
+                <table>
+                  <thead><tr>
+                    <th>Customer</th><th>Amount</th><th>Type</th><th>Recovered</th><th>Attempts</th><th>Risk</th><th>Status</th><th aria-label="Open transaction" />
+                  </tr></thead>
+                  <tbody>
+                    {filtered.map((t, index) => {
+                      const isRecovered = (t.status || '').toLowerCase() === 'recovered';
+                      const score = t.risk_score || 0;
+                      const risk = riskLevel(score);
+                      const amt = t.amount || 0;
+                      const recovered = isRecovered ? amt : 0;
+                      return (
+                        <tr key={t.id || index} style={{ animationDelay: `${index * 0.03}s` }} onClick={() => t.id && navigate(`/transactions/${t.id}`)}>
+                          <td><strong>{t.customer_name || t.customer || 'Unknown'}</strong><small>{t.customer_email || t.email || ''}</small></td>
+                          <td className="mono">{formatINR(amt / 100)}</td>
+                          <td>{(t.failure_reason || t.type || 'Payment').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</td>
+                          <td className={recovered ? 'recovered mono' : 'muted mono'}>{recovered ? formatINR(recovered / 100) : '-'}</td>
+                          <td>{t.attempt_count || t.attempts || 0}</td>
+                          <td>
+                            <span className={`risk-badge ${isRecovered ? 'risk-resolved' : `risk-${risk.toLowerCase()}`}`} title={`AI Risk Score: ${score}/100 (${isRecovered ? 'Resolved' : risk})`}>
+                              <ShieldAlert />{isRecovered ? 'Resolved' : risk}
+                            </span>
+                          </td>
+                          <td><span className={`status-badge status-${(t.status || 'failed').toLowerCase()}`}><i />{t.status || 'Failed'}</span></td>
+                          <td><ChevronRight className="row-arrow" /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {filtered.length === 0 && (
+                <div className="transaction-empty">
+                  <FolderOpen /><strong>No transactions found</strong><span>Try adjusting your filters or search query</span>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <footer>
+          <span>Clawback <small>AI-powered revenue recovery</small></span>
+          <span>Powered by <b>Razorpay</b> <span className="footer-dot" /> All systems operational</span>
+        </footer>
+      </div>
+    </main>
   );
 }
