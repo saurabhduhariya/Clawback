@@ -194,7 +194,7 @@ export default function Dashboard() {
       <header className="topbar">
         <button className="mobile-menu" aria-label="Toggle navigation" onClick={() => setMobileNav(!mobileNav)}><Menu /></button>
         <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          <span className="brand-mark"><Bot /></span>
+          
           <span>Clawback</span>
           <span className="brand-divider" />
           <span className="brand-subtitle">AI revenue recovery</span>

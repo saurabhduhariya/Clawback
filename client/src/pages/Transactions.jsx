@@ -65,7 +65,7 @@ export default function Transactions() {
       <div className="dashboard-glow glow-one" />
       <header className="topbar">
         <button className="mobile-menu" aria-label="Toggle navigation" onClick={() => setMobileNav(!mobileNav)}><Menu /></button>
-        <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}><span className="brand-mark"><Bot /></span><span>Clawback</span><span className="brand-divider" /><span className="brand-subtitle">AI revenue recovery</span></div>
+        <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}><span>Clawback</span><span className="brand-divider" /><span className="brand-subtitle">AI revenue recovery</span></div>
         <nav className={mobileNav ? 'topnav open' : 'topnav'}>
           <a className={location.pathname === '/dashboard' ? 'active' : ''} onClick={() => navigate('/dashboard')} style={{cursor:'pointer'}}>Overview</a>
           <a className={location.pathname === '/transactions' ? 'active' : ''} onClick={() => navigate('/transactions')} style={{cursor:'pointer'}}>Transactions</a>
