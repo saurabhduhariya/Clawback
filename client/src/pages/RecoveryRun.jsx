@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import GlassDropdown from '../components/GlassDropdown';
 import { useRecovery } from '../context/RecoveryContext';
 import {
   Activity, Bot, Brain, ChevronDown, Clock3, Database, Gauge, GitBranch,
@@ -74,10 +75,23 @@ export default function RecoveryRun() {
   // Use global context instead of local state!
   const { logs, running, done, activeNode, startRecovery, reconnect, checkExistingJob } = useRecovery();
 
-  useEffect(() => {
+    useEffect(() => {
     reconnect();
     checkExistingJob();
   }, [reconnect, checkExistingJob]);
+
+  useEffect(() => {
+    if (location.state?.autoRun && !running) {
+      startRecovery({
+        count: 1,
+        daysBack: 7,
+        autoExecute: true,
+        transactionId: location.state.transactionId
+      });
+      // Clear state so it doesn't loop
+      navigate('/recover', { replace: true, state: {} });
+    }
+  }, [location.state, running, startRecovery, navigate]);
 
   // Derive active stage index from context
   const activeStage = useMemo(() => {
@@ -121,11 +135,12 @@ export default function RecoveryRun() {
         </nav>
         <div className="top-actions">
           <span className="recovery-top-status"><span className="status-dot is-active" /> Agent ready</span>
-          <label className="interval">
-            <Clock3 />
-            <select aria-label="Recovery interval"><option>Every 6h</option><option>Every 12h</option><option>Every 24h</option></select>
-            <ChevronDown />
-          </label>
+          <GlassDropdown 
+            icon={Clock3}
+            value="Every 6h" 
+            options={['Every 6h', 'Every 12h', 'Every 24h']}
+            onChange={() => {}} 
+          />
         </div>
       </header>
 
@@ -141,7 +156,7 @@ export default function RecoveryRun() {
           </button>
         </section>
 
-        <section className="config-panel reveal delay-one">
+        <section className="config-panel reveal delay-one" style={{ position: 'relative', zIndex: 50 }}>
           <label>Transactions to process
             <input type="number" min="1" max="200" value={count} onChange={(e) => setCount(e.target.value)} list="batch-options" placeholder="Enter count..." className="config-input" />
             <datalist id="batch-options"><option value="5" /><option value="10" /><option value="25" /><option value="50" /><option value="100" /></datalist>
@@ -149,11 +164,13 @@ export default function RecoveryRun() {
           <label className="toggle-label">Auto-execute
             <button className={`switch ${autoExecute ? 'on' : ''}`} aria-label="Toggle auto-execute" onClick={() => setAutoExecute(!autoExecute)}><span /></button>
           </label>
-          <label>Days back
-            <select value={days} onChange={(e) => setDays(e.target.value)}>
-              <option>3 days</option><option>7 days</option><option>14 days</option><option>30 days</option>
-            </select>
-          </label>
+          <div className="flex items-center gap-3 text-zinc-400 font-medium">Days back
+            <GlassDropdown 
+              value={days} 
+              options={['3 days', '7 days', '14 days', '30 days']}
+              onChange={(val) => setDays(val)} 
+            />
+          </div>
         </section>
 
         <section className="pipeline-card reveal delay-two">
@@ -172,7 +189,6 @@ export default function RecoveryRun() {
               <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.2 }} nodesDraggable={false} nodesConnectable={false} zoomOnScroll={false} panOnScroll={false} preventScrolling={false} zoomOnPinch={false} zoomOnDoubleClick={false} proOptions={{ hideAttribution: true }}>
                 <Background color="#ffffff14" gap={22} size={1} />
                 <Controls showInteractive={false} />
-                <MiniMap nodeColor={(node) => node.data?.status === 'active' ? '#34d399' : '#3f3f46'} maskColor="#09090b88" />
               </ReactFlow>
             </ReactFlowProvider>
           </div>
@@ -197,7 +213,7 @@ export default function RecoveryRun() {
 
         <footer>
           <span>Clawback <small>AI-powered revenue recovery</small></span>
-          <span>Powered by <b>Razorpay</b> <span className="footer-dot" /> All systems operational</span>
+          
         </footer>
       </div>
     </main>

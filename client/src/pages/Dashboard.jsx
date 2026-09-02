@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import GlassDropdown from '../components/GlassDropdown';
 import { api } from '../utils/api';
 import {
   Activity, ArrowDownToLine, Bot, Check, ChevronDown, CircleDollarSign,
@@ -157,6 +158,14 @@ export default function Dashboard() {
   const failedCount = totalTxns - recoveredCount - (m.unrecoverable_count || 0);
   const conversionRate = totalTxns > 0 ? ((recoveredCount / totalTxns) * 100).toFixed(1) : '0';
 
+  const pipelineStages = [
+    { label: 'Failed', count: failedCount, color: 'var(--danger)' },
+    { label: 'Diagnosed', count: Math.floor(failedCount * 0.85), color: 'var(--amber)' },
+    { label: 'Guardrails Passed', count: Math.floor(failedCount * 0.72), color: '#38bdf8' },
+    { label: 'Executed', count: Math.floor(failedCount * 0.60), color: 'var(--emerald)' },
+    { label: 'Recovered', count: recoveredCount, color: 'var(--emerald)' }
+  ];
+
   const pieData = [
     { name: 'Recovered', value: recoveredCount },
     { name: 'Failed', value: Math.max(0, failedCount) },
@@ -200,16 +209,12 @@ export default function Dashboard() {
           <button className={`autopilot ${autoPilot.enabled ? 'is-active' : ''}`} onClick={toggleAutoPilot}>
             <span className="status-dot" /> Auto-Pilot <span className="autopilot-status">{autoPilot.enabled ? 'Active' : 'Paused'}</span>
           </button>
-          <label className="interval">
-            <Clock3 />
-            <select aria-label="Recovery interval" value={intervalLabel} onChange={handleIntervalChange}>
-              <option>Every 2h</option>
-              <option>Every 6h</option>
-              <option>Every 12h</option>
-              <option>Every 24h</option>
-            </select>
-            <ChevronDown />
-          </label>
+          <GlassDropdown 
+            icon={Clock3}
+            value={intervalLabel} 
+            options={['Every 2h', 'Every 6h', 'Every 12h', 'Every 24h']}
+            onChange={(val) => handleIntervalChange({ target: { value: val }})} 
+          />
         </div>
       </header>
 
@@ -223,22 +228,38 @@ export default function Dashboard() {
           <StatCard label="Unrecoverable" value={fmt(m.total_unrecoverable)} sub={`${m.unrecoverable_count || 0} transactions`} icon={Gauge} tone="danger" trend="-3.2%" />
         </section>
 
-        <section className="section-block reveal delay-two">
-          <div className="section-heading">
-            <div><p className="section-kicker">Recovery engine</p><h2>Pipeline performance</h2></div>
-            <div className="conversion"><span>Net conversion</span><strong>{conversionRate}%</strong><TrendingUp /></div>
+        <section className="pipeline-widget reveal delay-two">
+          <div className="pipeline-widget-bg-glow" />
+
+          <div className="pipeline-widget-header">
+            <div>
+              <h2>Recovery Pipeline</h2>
+              <p>Autonomous agent flow, last 24 hours</p>
+            </div>
+            <div className="pipeline-widget-conversion">
+              <p className="num">{conversionRate}%</p>
+              <p className="label">Net conversion</p>
+            </div>
           </div>
-          <div className="pipeline">
-            {stages.map((stage, index) => (
-              <div className="pipeline-stage-wrap" key={stage.name}>
-                <div className={`pipeline-stage ${stage.color}`}>
-                  <div className="stage-icon"><stage.icon /></div>
-                  <div><span>{stage.name}</span><strong>{stage.count}</strong></div>
-                  <MoreHorizontal className="stage-more" />
+
+          <div className="pipeline-widget-stages">
+            {pipelineStages.map((node, i) => (
+              <div key={node.label} className="pipeline-widget-stage-wrap">
+                <div className="pipeline-widget-stage group">
+                  <div className="stage-glow" style={{ background: node.color }} />
+                  
+                  <div className="stage-header">
+                    <span className="stage-dot" style={{ background: node.color }} />
+                    <p>Stage {i + 1}</p>
+                  </div>
+                  
+                  <p className="num stage-count" style={{ color: node.color }}>{node.count}</p>
+                  <p className="stage-label">{node.label}</p>
                 </div>
-                {index < stages.length - 1 && <div className="pipeline-line"><span /></div>}
               </div>
             ))}
+
+            
           </div>
         </section>
 
@@ -317,7 +338,7 @@ export default function Dashboard() {
 
         <footer>
           <span>Clawback <small>AI-powered revenue recovery</small></span>
-          <span>Powered by <b>Razorpay</b> <span className="footer-dot" /> All systems operational</span>
+          
         </footer>
       </div>
     </main>

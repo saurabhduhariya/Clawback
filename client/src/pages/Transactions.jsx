@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import GlassDropdown from '../components/GlassDropdown';
 import { api } from '../utils/api';
-import { Bot, ChevronDown, ChevronRight, Clock3, Download, FolderOpen, Menu, Search, ShieldAlert } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, Clock3, Download, FolderOpen, Menu, Search, ShieldAlert, Zap } from 'lucide-react';
 
 const formatINR = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
 
@@ -75,18 +76,17 @@ export default function Transactions() {
           <button className={`autopilot ${autoPilot.enabled ? 'is-active' : ''}`} onClick={toggleAutoPilot}>
             <span className="status-dot" /> Auto-Pilot <span className="autopilot-status">{autoPilot.enabled ? 'Active' : 'Paused'}</span>
           </button>
-          <label className="interval">
-            <Clock3 />
-            <select aria-label="Recovery interval" value={intervalLabel} onChange={handleIntervalChange}>
-              <option>Every 2h</option><option>Every 6h</option><option>Every 12h</option><option>Every 24h</option>
-            </select>
-            <ChevronDown />
-          </label>
+          <GlassDropdown 
+            icon={Clock3}
+            value={intervalLabel} 
+            options={['Every 2h', 'Every 6h', 'Every 12h', 'Every 24h']}
+            onChange={(val) => handleIntervalChange({ target: { value: val }})} 
+          />
         </div>
       </header>
 
       <div className="page-content transactions-content">
-        <section className="transactions-header reveal">
+        <section className="transactions-header reveal" style={{ position: 'relative', zIndex: 50 }}>
           <div>
             <p className="eyebrow"><span className="live-pip" /> Recovery ledger</p>
             <h1>Transactions</h1>
@@ -97,12 +97,11 @@ export default function Transactions() {
               <Search />
               <input aria-label="Search customers" placeholder="Search customers..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
-            <label className="status-filter">
-              <select aria-label="Status filter" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option>All Status</option><option>Pending</option><option>Recovering</option><option>Recovered</option><option>Failed</option><option>Overdue</option><option>Abandoned</option>
-              </select>
-              <ChevronDown />
-            </label>
+            <GlassDropdown 
+              value={status} 
+              options={['All Status', 'Pending', 'Recovering', 'Recovered', 'Failed', 'Overdue', 'Abandoned']}
+              onChange={(val) => setStatus(val)} 
+            />
           </div>
         </section>
 
@@ -142,7 +141,42 @@ export default function Transactions() {
                             </span>
                           </td>
                           <td><span className={`status-badge status-${(t.status || 'failed').toLowerCase()}`}><i />{t.status || 'Failed'}</span></td>
-                          <td><ChevronRight className="row-arrow" /></td>
+                          
+                          <td>
+                            {!isRecovered ? (
+                              <button 
+                                className="run-single-btn" 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  navigate('/recover', { state: { autoRun: true, transactionId: t.id, customer: t.customer_name || t.customer } }); 
+                                }}
+                                style={{
+                                  background: 'rgba(52,211,153,0.1)',
+                                  border: '1px solid rgba(52,211,153,0.2)',
+                                  color: '#34d399',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = 'rgba(52,211,153,0.2)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = 'rgba(52,211,153,0.1)';
+                                }}
+                              >
+                                Recover
+                              </button>
+                            ) : (
+                              <ChevronRight className="row-arrow" />
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -160,7 +194,7 @@ export default function Transactions() {
 
         <footer>
           <span>Clawback <small>AI-powered revenue recovery</small></span>
-          <span>Powered by <b>Razorpay</b> <span className="footer-dot" /> All systems operational</span>
+          
         </footer>
       </div>
     </main>

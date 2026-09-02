@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { RecoveryProvider } from './context/RecoveryContext';
 import { ToastProvider } from './context/ToastContext';
-import Navbar from './components/Navbar';
 import PageTransition from './components/PageTransition';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -14,12 +13,11 @@ import RecoverBot from './components/RecoverBot';
 function AnimatedRoutes() {
   const location = useLocation();
   const isLanding = location.pathname === '/';
-  const isClawbackPage = ['/dashboard', '/transactions', '/recover'].includes(location.pathname);
 
   return (
     <div className="min-h-screen">
       {!isLanding && <RecoverBot />}
-      {!isLanding && !isClawbackPage && <Navbar />}
+      
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Landing />} />

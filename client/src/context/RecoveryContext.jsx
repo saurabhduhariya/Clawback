@@ -90,7 +90,7 @@ export function RecoveryProvider({ children }) {
   /**
    * Start a new recovery run.
    */
-  const startRecovery = useCallback(async (limit = 10) => {
+  const startRecovery = useCallback(async (options = { limit: 10 }) => {
     setLogs([]);
     setDone(false);
     setResults(null);
@@ -98,11 +98,18 @@ export function RecoveryProvider({ children }) {
     setActiveNode(null);
     logCountRef.current = 0;
 
+    let bodyPayload;
+    if (typeof options === 'number') {
+      bodyPayload = { limit: options };
+    } else {
+      bodyPayload = { limit: options.limit || options.count || 10, transactionId: options.transactionId };
+    }
+
     try {
       const res = await fetch(`${API_BASE}/recovery/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit }),
+        body: JSON.stringify(bodyPayload),
       });
 
       const data = await res.json();

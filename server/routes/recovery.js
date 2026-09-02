@@ -6,7 +6,8 @@ const JobManager = require("../services/jobManager");
 // POST /api/recovery/start — kick off a background recovery job
 router.post("/start", async (req, res) => {
   try {
-    const limit = parseInt(req.body.limit) || 10;
+        const limit = parseInt(req.body.limit) || 10;
+    const transactionId = req.body.transactionId;
 
     // Prevent duplicate concurrent runs
     const latest = JobManager.getLatestJob();
@@ -17,13 +18,20 @@ router.post("/start", async (req, res) => {
       });
     }
 
-    // Count recoverable transactions
-    const transactions = await queryAll(
-      `SELECT * FROM transactions
-       WHERE status IN ('failed', 'abandoned', 'overdue')
-       AND attempt_count < max_attempts LIMIT ?`,
-      [limit]
-    );
+    let transactions = [];
+    if (transactionId) {
+      transactions = await queryAll(
+        `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue')`,
+        [transactionId]
+      );
+    } else {
+      transactions = await queryAll(
+        `SELECT * FROM transactions
+         WHERE status IN ('failed', 'abandoned', 'overdue')
+         AND attempt_count < max_attempts LIMIT ?`,
+        [limit]
+      );
+    }
 
     if (transactions.length === 0) {
       return res.json({ runId: null, totalTransactions: 0, message: "No transactions to recover" });
@@ -38,7 +46,7 @@ router.post("/start", async (req, res) => {
     );
 
     // Start background job (returns immediately)
-    JobManager.startJob(runId, limit);
+    JobManager.startJob(runId, { limit, transactionId });
 
     res.json({ runId, totalTransactions: transactions.length });
   } catch (err) {

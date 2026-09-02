@@ -1,5 +1,5 @@
-import ClawbackDashboard from '@/components/clawback-dashboard'
+import ClawbackLanding from '@/components/clawback-landing'
 
 export default function Page() {
-  return <ClawbackDashboard />
+  return <ClawbackLanding />
 }

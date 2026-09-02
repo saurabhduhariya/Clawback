@@ -15,7 +15,7 @@ class JobManager {
    * Start a background recovery job. Returns immediately.
    * The pipeline runs asynchronously and is NOT tied to any HTTP response.
    */
-  static startJob(runId, limit = 10) {
+  static startJob(runId, options = {}) {
     const job = {
       runId,
       status: "running", // running | completed | error
@@ -30,7 +30,7 @@ class JobManager {
     jobs.set(runId, job);
 
     // Fire and forget — runs in background
-    this._executeJob(job, limit).catch((err) => {
+    this._executeJob(job, options).catch((err) => {
       console.error(`[JobManager] Job ${runId} fatal error:`, err);
       job.status = "error";
       job.completedAt = new Date().toISOString();
@@ -43,14 +43,23 @@ class JobManager {
   /**
    * The actual recovery pipeline execution (runs in background)
    */
-  static async _executeJob(job, limit) {
+  static async _executeJob(job, options) {
+        const { limit = 10, transactionId } = options;
     try {
-      const transactions = await queryAll(
-        `SELECT * FROM transactions
-         WHERE status IN ('failed', 'abandoned', 'overdue')
-         AND attempt_count < max_attempts LIMIT ?`,
-        [limit]
-      );
+      let transactions = [];
+      if (transactionId) {
+        transactions = await queryAll(
+          `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue')`,
+          [transactionId]
+        );
+      } else {
+        transactions = await queryAll(
+          `SELECT * FROM transactions
+           WHERE status IN ('failed', 'abandoned', 'overdue')
+           AND attempt_count < max_attempts LIMIT ?`,
+          [limit]
+        );
+      }
 
       if (transactions.length === 0) {
         this._pushLog(job, "complete", {

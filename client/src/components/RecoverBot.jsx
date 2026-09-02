@@ -53,7 +53,7 @@ export default function RecoverBot() {
         initial={{ scale: 0 }}
         animate={{ scale: isOpen ? 0 : 1 }}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-2xl bg-[#111113b8] backdrop-blur-[18px] border border-white/10 text-[#a1a1aa] shadow-[0_12px_30px_rgba(0,0,0,0.5)] flex items-center justify-center z-50 hover:scale-105 hover:text-[#34d399] hover:border-[#34d39940] transition-all"
+        className="fixed bottom-6 right-6 w-12 h-12 rounded-2xl bg-[#111113b8] backdrop-blur-[18px] border border-white/10 text-[#a1a1aa] shadow-[0_12px_30px_rgba(0,0,0,0.5)] flex items-center justify-center z-[9999] hover:scale-105 hover:shadow-[0_0_30px_rgba(52,211,153,0.3)] hover:text-[#34d399] hover:border-[#34d39940] transition-all"
       >
         <Bot className="w-6 h-6" />
       </motion.button>
@@ -66,16 +66,16 @@ export default function RecoverBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 w-[340px] h-[540px] max-h-[85vh] bg-[#111113e6] backdrop-blur-[24px] border border-white/10 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden"
+            className="fixed bottom-6 right-6 w-[340px] h-[540px] max-h-[85vh] bg-[#09090be6] backdrop-blur-[32px] border border-[#ffffff15] rounded-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),0_0_40px_-10px_rgba(52,211,153,0.1)] z-[9999] flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 bg-[#09090bcc]">
+            <div className="h-16 flex items-center justify-between px-4 border-b border-[#ffffff10] bg-[#00000040]">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-black border border-white/10 flex items-center justify-center text-[#34d399]">
                   <Bot className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">RecoverBot</h3>
+                  <h3 className="text-[13px] font-bold text-white tracking-wide">RecoverBot</h3>
                   <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
                   </p>
@@ -95,10 +95,10 @@ export default function RecoverBot() {
                   }`}>
                     {msg.role === 'user' ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4" />}
                   </div>
-                  <div className={`px-4 py-3 rounded-2xl max-w-[75%] text-sm ${
+                  <div className={`px-3.5 py-2.5 rounded-2xl max-w-[80%] text-[12.5px] leading-relaxed shadow-sm ${
                     msg.role === 'user' 
-                      ? 'bg-[#34d39915] border border-[#34d39930] text-[#f4f4f5] rounded-tr-none' 
-                      : 'bg-[#ffffff08] border border-white/5 text-[#a1a1aa] rounded-tl-none prose prose-invert prose-p:leading-snug prose-a:text-emerald-400 prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-sm prose-table:w-full prose-table:border-collapse prose-table:border prose-table:border-white/10 prose-th:bg-white/5 prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-white/10 prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-white/10 prose-th:text-left'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-50 rounded-tr-none' 
+                      : 'bg-[#ffffff05] border border-white/5 text-[#a1a1aa] rounded-tl-none prose prose-invert prose-p:text-[12.5px] prose-li:text-[12.5px] prose-strong:text-white prose-p:leading-snug prose-a:text-emerald-400 prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-sm prose-table:w-full prose-table:border-collapse prose-table:border prose-table:border-white/10 prose-th:bg-white/5 prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-white/10 prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-white/10 prose-th:text-left'
                   }`}>
                     {msg.role === 'user' ? (
                       msg.content
@@ -125,14 +125,14 @@ export default function RecoverBot() {
             </div>
 
             {/* Input Area */}
-            <form onSubmit={handleSend} className="p-3 bg-[#09090bcc] border-t border-white/10">
+            <form onSubmit={handleSend} className="p-3 bg-[#00000040] border-t border-[#ffffff10]">
               <div className="relative flex items-center">
                 <input
                   type="text"
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   placeholder="Ask RecoverBot..."
-                  className="w-full bg-[#ffffff05] border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-[#d4d4d8] placeholder:text-[#52525b] focus:outline-none focus:border-[#34d39955] transition-all"
+                  className="w-full bg-[#ffffff05] border border-white/10 rounded-xl pl-4 pr-12 py-2.5 text-[13px] text-[#d4d4d8] placeholder:text-[#52525b] focus:outline-none focus:border-[#34d39955] transition-all"
                   disabled={isLoading}
                 />
                 <button
