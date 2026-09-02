@@ -83,7 +83,57 @@ const generatePaymentLinkTool = tool(
   }
 );
 
-const tools = [queryDatabaseTool, triggerRecoveryTool, generatePaymentLinkTool];
+// Tool 1: Get Dashboard Metrics
+const getDashboardMetricsTool = tool(
+  async () => {
+    try {
+      console.log(`[Tool] Fetching dashboard metrics`);
+      const totalTxns = await queryAll('SELECT COUNT(*) as count, SUM(amount) as total_amount FROM transactions');
+      const recovered = await queryAll('SELECT COUNT(*) as count, SUM(recovered_amount) as recovered_amount FROM transactions WHERE status = \'recovered\'');
+      const failed = await queryAll('SELECT COUNT(*) as count FROM transactions WHERE status = \'failed\'');
+      
+      return JSON.stringify({
+        total_transactions: totalTxns[0].count,
+        total_at_risk_amount: totalTxns[0].total_amount || 0,
+        recovered_transactions: recovered[0].count,
+        recovered_amount: recovered[0].recovered_amount || 0,
+        currently_failed: failed[0].count
+      });
+    } catch (err) {
+      return `Error executing query: ${err.message}`;
+    }
+  },
+  {
+    name: "get_dashboard_metrics",
+    description: "Fetches high-level revenue recovery metrics (total at risk, recovered amount, failure counts) from the database.",
+    schema: z.object({}),
+  }
+);
+
+// Tool 2: Explain Failure
+const explainFailureTool = tool(
+  async ({ transactionId }) => {
+    try {
+      console.log(`[Tool] Explaining failure for ${transactionId}`);
+      const txn = await queryAll('SELECT * FROM transactions WHERE id = ?', [transactionId]);
+      if (txn.length === 0) return `Transaction ${transactionId} not found.`;
+      
+      const t = txn[0];
+      return `Transaction ${t.id} failed due to: ${t.failure_reason}. Source: ${t.failure_source}. Current status: ${t.status}. AI Recommendation: ${t.failure_reason.toLowerCase().includes('insufficient') ? 'Send payment link' : 'Retry payment'}`;
+    } catch (err) {
+      return `Error fetching transaction: ${err.message}`;
+    }
+  },
+  {
+    name: "explain_failure",
+    description: "Analyzes a specific transaction ID to explain why it failed and suggest a recovery strategy.",
+    schema: z.object({
+      transactionId: z.string().describe("The ID of the failed transaction (e.g., pay_12345)."),
+    }),
+  }
+);
+
+const tools = [getDashboardMetricsTool, explainFailureTool, queryDatabaseTool, triggerRecoveryTool, generatePaymentLinkTool];
 
 const systemMessage = `You are RecoverBot, the AI Finance Co-pilot for Razorpay Revenue Recovery.
 You have access to tools that can read the database, trigger autonomous recoveries, and generate payment links.
@@ -99,11 +149,13 @@ Database Schema (PostgreSQL):
 
 router.post("/", async (req, res) => {
   try {
-    const { message, chat_history = [] } = req.body;
+    const { message, chat_history = [], context = {} } = req.body;
     
-    // In a real app, map chat_history to proper LangChain message objects
-    // For this hackathon, we'll just pass a minimal history if provided, but let's keep it simple
-    
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
     const formattedHistory = chat_history.map(m => 
       m.role === 'user' ? { role: 'user', content: m.content } : { role: 'assistant', content: m.content }
     );
@@ -111,18 +163,42 @@ router.post("/", async (req, res) => {
     const agent = createReactAgent({
       llm,
       tools,
-      messageModifier: systemMessage,
+      messageModifier: systemMessage + "\n\nUser Context: " + JSON.stringify(context),
     });
     
-    const result = await agent.invoke({
+    const stream = await agent.streamEvents({
       messages: [...formattedHistory, { role: 'user', content: message }]
-    });
+    }, { version: 'v2' });
 
-    const reply = result.messages[result.messages.length - 1].content;
-    res.json({ reply });
+    for await (const event of stream) {
+      if (event.event === 'on_chat_model_stream') {
+        const chunk = event.data.chunk;
+        if (chunk && chunk.content && typeof chunk.content === 'string') {
+          res.write(`data: ${JSON.stringify({ type: 'content', content: chunk.content })}\n\n`);
+        } else if (chunk && Array.isArray(chunk.content)) {
+            // handle multimodal array content
+            const textPart = chunk.content.find(p => p.type === 'text');
+            if (textPart && textPart.text) {
+                res.write(`data: ${JSON.stringify({ type: 'content', content: textPart.text })}\n\n`);
+            }
+        }
+      } else if (event.event === 'on_tool_start') {
+        res.write(`data: ${JSON.stringify({ type: 'tool_start', name: event.name })}\n\n`);
+      } else if (event.event === 'on_tool_end') {
+        res.write(`data: ${JSON.stringify({ type: 'tool_end', name: event.name })}\n\n`);
+      }
+    }
+    res.write(`data: [DONE]\n\n`);
+    res.end();
+
   } catch (err) {
     console.error("Chat error:", err);
-    res.status(500).json({ error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+      res.end();
+    }
   }
 });
 

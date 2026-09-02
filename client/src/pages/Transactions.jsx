@@ -124,6 +124,7 @@ export default function Transactions() {
                   <tbody>
                     {filtered.map((t, index) => {
                       const isRecovered = (t.status || '').toLowerCase() === 'recovered';
+                      const isUnrecoverable = (t.status || '').toLowerCase() === 'unrecoverable';
                       const score = t.risk_score || 0;
                       const risk = riskLevel(score);
                       const amt = t.amount || 0;
@@ -143,7 +144,7 @@ export default function Transactions() {
                           <td><span className={`status-badge status-${(t.status || 'failed').toLowerCase()}`}><i />{t.status || 'Failed'}</span></td>
                           
                           <td>
-                            {!isRecovered ? (
+                            {(!isRecovered && !isUnrecoverable) ? (
                               <button 
                                 className="run-single-btn" 
                                 onClick={(e) => { 

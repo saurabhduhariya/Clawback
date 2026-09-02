@@ -342,7 +342,7 @@ export default function Dashboard() {
               /\d+\.\d+%/.test(part) ? <span key={i}>{part}</span> : part
             )}</h3>
             <p>{insightDesc}</p>
-            <button>View strategy report <ArrowDownToLine /></button>
+            <button onClick={() => window.dispatchEvent(new CustomEvent('open-bot', { detail: { prompt: "Can you provide a detailed strategy report on why retries are outperforming reminders?" }}))}>View strategy report <ArrowDownToLine /></button>
           </div>
         </section>
 

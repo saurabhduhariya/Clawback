@@ -151,9 +151,14 @@ export default function RecoveryRun() {
             <h1>Recovery</h1>
             <p>Launch the autonomous AI agent to recover failed payments.</p>
           </div>
-          <button className="run-agent" onClick={runAgent} disabled={running}>
-            {running ? <><Activity className="spin" /> Running...</> : <><Zap /> Run Recovery Agent</>}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button className="run-agent" onClick={() => startRecovery(1000)} disabled={running}>
+              {running ? <><Activity className="spin" /> Running...</> : <><Zap /> Run Full Scan</>}
+            </button>
+            <button className="run-agent" onClick={runAgent} disabled={running}>
+              {running ? <><Activity className="spin" /> Running...</> : <><Zap /> Run Recovery Agent</>}
+            </button>
+          </div>
         </section>
 
         <section className="config-panel reveal delay-one" style={{ position: 'relative', zIndex: 50 }}>

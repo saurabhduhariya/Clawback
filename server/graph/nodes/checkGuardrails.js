@@ -13,11 +13,11 @@ async function checkGuardrails(state) {
     };
   }
 
-  // Rule 2: Is this retryable?
-  if (diagnosis && !diagnosis.is_retryable) {
+  // Rule 2: Is this unrecoverable?
+  if (diagnosis && diagnosis.recommended_action === "mark_unrecoverable") {
     return {
       guardrailResult: { allowed: false, reason: "blocked_unrecoverable" },
-      auditLog: { step: "guardrails", timestamp: ts, detail: "BLOCKED: Diagnosed as non-retryable" },
+      auditLog: { step: "guardrails", timestamp: ts, detail: "BLOCKED: Diagnosed as unrecoverable" },
     };
   }
 

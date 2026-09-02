@@ -6,16 +6,20 @@ async function updateState(state) {
 
   // Determine new transaction status
   const newStatus = recoveryResult === "success" ? "recovered"
-    : chosenAction === "mark_unrecoverable" ? "unrecoverable"
+    : (chosenAction === "mark_unrecoverable" || guardrailResult?.reason === "blocked_max_attempts") ? "unrecoverable"
     : transaction.status; // keep current status if still failing
 
   const recoveredAmount = recoveryResult === "success" ? transaction.amount : 0;
 
+  // Only increment attempt count if the guardrails actually allowed an action
+  const increment = (guardrailResult && !guardrailResult.allowed) ? 0 : 1;
+  const newAttemptCount = transaction.attempt_count + increment;
+
   // 1. Update the transaction row
   await run(
-    `UPDATE transactions SET status = ?, attempt_count = attempt_count + 1,
+    `UPDATE transactions SET status = ?, attempt_count = ?,
      recovered_amount = ?, updated_at = NOW() WHERE id = ?`,
-    [newStatus, recoveredAmount, transaction.id]
+    [newStatus, newAttemptCount, recoveredAmount, transaction.id]
   );
 
   // 2. Insert audit trail record
@@ -27,7 +31,7 @@ async function updateState(state) {
       simulated_outcome, recovery_result
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      transaction.id, runId, transaction.attempt_count + 1,
+      transaction.id, runId, newAttemptCount,
       JSON.stringify(diagnosis), guardrailResult?.reason || "passed",
       chosenAction || "none", actionReason || "",
       razorpayResponse?.api_called || "", JSON.stringify(razorpayResponse?.request || {}),
@@ -39,7 +43,7 @@ async function updateState(state) {
   return {
     auditLog: {
       step: "complete", timestamp: new Date().toISOString(),
-      detail: `Result: ${recoveryResult}. Status → ${newStatus}. ₹${(recoveredAmount / 100).toFixed(2)} recovered.`,
+      detail: `Result: ${recoveryResult || "skipped"}. Status → ${newStatus}. ₹${(recoveredAmount / 100).toFixed(2)} recovered.`,
     },
   };
 }

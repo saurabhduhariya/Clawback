@@ -14,20 +14,15 @@ if (keys.length === 0) {
 }
 
 const llms = keys.map(apiKey => new ChatGoogleGenerativeAI({
-  model: 'gemini-3.5-flash',
+  model: 'gemini-3.6-flash',
   apiKey: apiKey,
   temperature: 0.2,
   maxRetries: 0 // Crucial: fail fast so withFallbacks can take over immediately
 }));
 
-let llm = llms[0];
-
-if (llms.length > 1) {
-  llm = llms[0].withFallbacks({
-    fallbacks: llms.slice(1)
-  });
-}
-
+let llm = llms[1];
+// Removed withFallbacks for the main llm export because it breaks createReactAgent.
+// The agent requires a BaseChatModel instance with .bindTools()
 module.exports = {
   llm,
   getStructuredLlm: (schema) => {
