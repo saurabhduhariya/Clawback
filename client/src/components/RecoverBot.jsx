@@ -56,7 +56,7 @@ export default function RecoverBot() {
     try {
       // We can't use our simple fetchApi wrapper for SSE, we need native fetch to process the stream
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3001/api/chat', {
+      const res = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/chat` : 'http://localhost:3001/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

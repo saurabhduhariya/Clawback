@@ -113,7 +113,7 @@ export default function Dashboard() {
     } catch (err) { console.error("Failed to update interval", err); }
   };
 
-  const exportCsv = () => window.open('http://localhost:3001/api/export/csv', '_blank');
+  const exportCsv = () => window.open(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/export/csv` : 'http://localhost:3001/api/export/csv', '_blank');
 
   const recoveredAmt = useCountUp(m ? m.total_recovered / 100 : 0);
 
