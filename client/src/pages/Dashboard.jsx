@@ -4,7 +4,7 @@ import { api } from '../utils/api';
 import {
   Activity, ArrowDownToLine, Bot, Check, ChevronDown, CircleDollarSign,
   Clock3, Download, Gauge, GitBranch, Menu, MoreHorizontal, Radio,
-  ShieldCheck, Sparkles, Target, TrendingUp, WalletCards, X
+  ShieldCheck, Sparkles, Target, TrendingUp, WalletCards, X, Zap as ZapIcon
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, Cell, PieChart, Pie,
@@ -214,7 +214,17 @@ export default function Dashboard() {
       </header>
 
       <div className="page-content" id="overview">
-
+        <section className="hero-copy reveal">
+          <div>
+            <p className="eyebrow"><span className="live-pip" /> Live recovery command center</p>
+            <h1>Recover more.<br /><span>Leave less behind.</span></h1>
+            <p className="hero-description">A clear view of every failed payment, the next best action, and the revenue Clawback is bringing back.</p>
+          </div>
+          <div className="hero-sidecar">
+            <div className="hero-meta"><span className="sync-icon"><Radio /></span><strong>Systems operational</strong><span>·</span><span>Synced just now</span></div>
+            <button className="hero-cta" onClick={() => navigate('/recover')}><ZapIcon /> Run recovery sweep <span>↗</span></button>
+          </div>
+        </section>
 
         <section className="stats-grid reveal delay-one">
           <StatCard label="Revenue at risk" value={fmt(m.total_at_risk)} sub={`${m.total_transactions} failed transactions`} icon={CircleDollarSign} tone="risk" trend="+12.4%" />
