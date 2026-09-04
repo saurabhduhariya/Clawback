@@ -8,6 +8,7 @@
     <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" />
     <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" />
     <img src="https://img.shields.io/badge/Gemini_AI-8E75B2?style=for-the-badge&logo=googlebard&logoColor=white" />
+    <a href="https://clawback-seven.vercel.app/" target="_blank"><img src="https://img.shields.io/badge/Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" /></a>
   </p>
 </div>
 
@@ -274,28 +275,6 @@ npm run dev
 ```
 
 Your backend will run on `http://localhost:3001` and your frontend will be accessible at `http://localhost:5173`.
-
----
-
-## ☁️ Deployment Instructions
-
-### Deploying the Backend (Render)
-1. Push your code to GitHub.
-2. Create a new **Web Service** on [Render](https://render.com).
-3. Connect your GitHub repository.
-4. Set the Root Directory to `server`.
-5. Set the Build Command to `npm install`.
-6. Set the Start Command to `node index.js`.
-7. Add all the environment variables from your `server/.env` file into the Render dashboard.
-
-### Deploying the Frontend (Vercel)
-1. Import your GitHub repository into [Vercel](https://vercel.com).
-2. Set the Root Directory to `client`.
-3. Vercel will automatically detect Vite and set the build commands.
-4. Add the `VITE_API_URL` environment variable and point it to your live Render backend URL (e.g., `https://clawback-api.onrender.com`).
-5. Click **Deploy**.
-
-*(Note: The `client/vercel.json` file ensures that React Router works correctly by redirecting all 404s to `index.html`.)*
 
 ---
 
