@@ -10,6 +10,7 @@
     <img src="https://img.shields.io/badge/Gemini_AI-8E75B2?style=for-the-badge&logo=googlebard&logoColor=white" />
     <a href="https://clawback-seven.vercel.app/" target="_blank"><img src="https://img.shields.io/badge/Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" /></a>
   </p>
+  <img src="assets/screenshots/hero.png" alt="Clawback Hero" width="100%" style="border-radius: 8px; margin-top: 20px;" />
 </div>
 
 ---
@@ -27,6 +28,19 @@ Instead of treating all failures equally, Clawback uses a **LangGraph + Google G
 * ⚡ **Autonomous Execution:** Automatically generates Razorpay Payment Links and sends emails via Resend without manual intervention.
 * 📊 **Glassmorphism Dashboard:** A premium, dark-mode React dashboard to monitor at-risk revenue, observe real-time agent logs, and manually override decisions.
 * 🔄 **Full Loop Tracking:** Listens for `payment.captured` webhooks to automatically mark revenue as successfully recovered.
+
+---
+
+## 📸 Dashboard & Interface
+
+<div align="center">
+  <img src="assets/screenshots/landing.png" alt="Clawback Home" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
+  <img src="assets/screenshots/dashboard.png" alt="Clawback Dashboard Analytics" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
+</div>
+<div align="center">
+  <img src="assets/screenshots/transactions.png" alt="Recovery Transactions Ledger" width="49%" style="border-radius: 8px;" />
+  <img src="assets/screenshots/pipeline.png" alt="LangGraph AI Pipeline" width="49%" style="border-radius: 8px;" />
+</div>
 
 ---
 
