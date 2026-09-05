@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/saurabh/razorpay-revenue-recovery/main/client/public/favicon.svg" alt="Clawback Logo" width="120" />
 
   <h1>💰 Clawback — AI Revenue Recovery</h1>
   <p><strong>An autonomous AI agent built to recover lost revenue for Razorpay merchants.</strong></p>
