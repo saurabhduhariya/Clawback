@@ -7,6 +7,8 @@ async function pickStrategy(state) {
   let action;
   if (NON_RETRYABLE_REASONS.includes(transaction.failure_reason)) {
     action = "mark_unrecoverable";
+  } else if (diagnosis && diagnosis.recommended_action) {
+    action = diagnosis.recommended_action;
   } else {
     action = STRATEGY_MATRIX[transaction.type]?.[attemptNum] || "escalate_manual";
   }

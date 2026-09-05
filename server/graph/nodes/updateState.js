@@ -4,16 +4,27 @@ async function updateState(state) {
   const { transaction, recoveryResult, simulatedOutcome, chosenAction,
           diagnosis, guardrailResult, razorpayResponse, runId, actionReason } = state;
 
-  // Determine new transaction status
-  const newStatus = recoveryResult === "success" ? "recovered"
-    : (chosenAction === "mark_unrecoverable" || guardrailResult?.reason === "blocked_max_attempts") ? "unrecoverable"
-    : transaction.status; // keep current status if still failing
+  // 1. Fetch the latest transaction state to prevent race conditions overwriting success
+  const { queryAll } = require("../../db/connection");
+  const latestTxns = await queryAll('SELECT status, recovered_amount, attempt_count FROM transactions WHERE id = ?', [transaction.id]);
+  const latestTxn = latestTxns[0] || transaction;
 
-  const recoveredAmount = recoveryResult === "success" ? transaction.amount : 0;
+  let newStatus = latestTxn.status;
+  let recoveredAmount = latestTxn.recovered_amount || 0;
+
+  if (recoveryResult === "success") {
+    newStatus = "recovered";
+    recoveredAmount = transaction.amount;
+  } else if (chosenAction === "mark_unrecoverable" || guardrailResult?.reason === "blocked_max_attempts") {
+    // Only mark unrecoverable if it wasn't already successfully recovered by a concurrent run
+    if (latestTxn.status !== "recovered") {
+      newStatus = "unrecoverable";
+    }
+  }
 
   // Only increment attempt count if the guardrails actually allowed an action
   const increment = (guardrailResult && !guardrailResult.allowed) ? 0 : 1;
-  const newAttemptCount = transaction.attempt_count + increment;
+  const newAttemptCount = latestTxn.attempt_count + increment;
 
   // 1. Update the transaction row
   await run(

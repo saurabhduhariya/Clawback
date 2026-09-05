@@ -686,3 +686,97 @@ body::before {
 .landing-footer{border-top-color:#ffffff12;}
 @media(max-width:700px){.landing-hero:after{display:none}.hero-stats{border-radius:16px;align-items:flex-start}.landing-cta{margin-left:16px;margin-right:16px;border-radius:18px;padding-left:18px;padding-right:18px}}
 @media(prefers-reduced-motion:reduce){.landing-primary:hover,.landing-launch:hover,.feature-card:hover{transform:none}}
+
+
+/* Mock Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: rgba(20,20,25,0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+  border-radius: 16px;
+  position: relative;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: #fff; }
+
+.modal-header h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+  background: linear-gradient(135deg, #fff, #a1a1aa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.modal-header p {
+  color: #a1a1aa;
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+
+.mock-form .form-group {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mock-form label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #d4d4d8;
+}
+
+.glass-input {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 12px 14px;
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(168,85,247,0.5);
+  background: rgba(255,255,255,0.06);
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  margin-top: 8px;
+}
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }

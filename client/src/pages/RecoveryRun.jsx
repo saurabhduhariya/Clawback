@@ -71,6 +71,7 @@ export default function RecoveryRun() {
   const [days, setDays] = useState('7 days');
   const [autoExecute, setAutoExecute] = useState(true);
   const logRef = useRef(null);
+  const hasRun = useRef(false);
 
   // Use global context instead of local state!
   const { logs, running, done, activeNode, startRecovery, reconnect, checkExistingJob } = useRecovery();
@@ -81,7 +82,8 @@ export default function RecoveryRun() {
   }, [reconnect, checkExistingJob]);
 
   useEffect(() => {
-    if (location.state?.autoRun && !running) {
+    if (location.state?.autoRun && !running && !hasRun.current) {
+      hasRun.current = true;
       startRecovery({
         count: 1,
         daysBack: 7,

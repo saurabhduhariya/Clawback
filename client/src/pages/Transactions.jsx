@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GlassDropdown from '../components/GlassDropdown';
 import { api } from '../utils/api';
-import { Bot, ChevronDown, ChevronRight, Clock3, Download, FolderOpen, Menu, Search, ShieldAlert, Zap } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, Clock3, Download, FolderOpen, Menu, Search, ShieldAlert, Zap, PlusCircle, X } from 'lucide-react';
 
 const formatINR = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
 
@@ -17,10 +17,43 @@ export default function Transactions() {
   const location = useLocation();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [mobileNav, setMobileNav] = useState(false);
+  const [isMockModalOpen, setIsMockModalOpen] = useState(false);
+  const [mockData, setMockData] = useState({ customer_name: '', customer_email: '', amount: '', failure_reason: 'expired_card' });
+  const [isSubmittingMock, setIsSubmittingMock] = useState(false);
+
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('All Status');
   const [autoPilot, setAutoPilot] = useState({ enabled: false, intervalHours: 6 });
+
+  
+  const handleMockSubmit = async (e) => {
+    e.preventDefault();
+    if (!mockData.customer_name || !mockData.customer_email || !mockData.amount) {
+      alert('Please fill in all fields');
+      return;
+    }
+    setIsSubmittingMock(true);
+    try {
+      const res = await fetch('/api/transactions/mock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mockData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create mock transaction');
+      
+      alert('Mock transaction injected successfully!');
+      setIsMockModalOpen(false);
+      setMockData({ customer_name: '', customer_email: '', amount: '', failure_reason: 'expired_card' });
+      api.getTransactions().then(txns => setTransactions(txns));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsSubmittingMock(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -92,8 +125,33 @@ export default function Transactions() {
             <h1>Transactions</h1>
             <p>Track every payment recovery attempt across your revenue engine.</p>
           </div>
+          
           <div className="transaction-controls">
+            <button 
+              className="run-single-btn" 
+              onClick={() => setIsMockModalOpen(true)}
+              style={{
+                background: 'rgba(59, 130, 246, 0.15)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                color: '#60a5fa',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: '600',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                marginRight: '8px'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.25)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)' }}
+            >
+              <PlusCircle size={16} /> Add Live Test
+            </button>
             <label className="search-box">
+
               <Search />
               <input aria-label="Search customers" placeholder="Search customers..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
@@ -198,6 +256,73 @@ export default function Transactions() {
           
         </footer>
       </div>
+    
+      {isMockModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsMockModalOpen(false)}>
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setIsMockModalOpen(false)}><X size={20}/></button>
+            <div className="modal-header">
+              <h2>Inject Mock Transaction</h2>
+              <p>Add a fake failed payment to test the AI agent live.</p>
+            </div>
+            
+            <form onSubmit={handleMockSubmit} className="mock-form">
+              <div className="form-group">
+                <label>Customer Name</label>
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  placeholder="e.g. Hackathon Judge" 
+                  value={mockData.customer_name}
+                  onChange={e => setMockData({...mockData, customer_name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Real Email (to receive link)</label>
+                <input 
+                  type="email" 
+                  className="glass-input" 
+                  placeholder="judge@example.com" 
+                  value={mockData.customer_email}
+                  onChange={e => setMockData({...mockData, customer_email: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Amount (INR)</label>
+                <input 
+                  type="number" 
+                  className="glass-input" 
+                  placeholder="e.g. 5000" 
+                  value={mockData.amount}
+                  onChange={e => setMockData({...mockData, amount: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Failure Reason</label>
+                <select 
+                  className="glass-input" 
+                  value={mockData.failure_reason}
+                  onChange={e => setMockData({...mockData, failure_reason: e.target.value})}
+                  style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: 'white' }}
+                >
+                  <option value="expired_card">Expired Card (Sends Payment Link)</option>
+                  <option value="insufficient_funds">Insufficient Funds (Sends Payment Link)</option>
+                  <option value="network_timeout">Network Timeout (Retries)</option>
+                  <option value="mandate_revoked">Mandate Revoked (Marks Unrecoverable)</option>
+                </select>
+              </div>
+              <button type="submit" className="primary-btn submit-btn" disabled={isSubmittingMock}>
+                {isSubmittingMock ? 'Injecting...' : 'Add Transaction'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
+
   );
 }
