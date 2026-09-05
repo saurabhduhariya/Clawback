@@ -40,8 +40,8 @@ export default function Transactions() {
       
       alert('Mock transaction injected successfully!');
       setIsMockModalOpen(false);
-      setStatusFilter('all');
-      setSearchTerm('');
+      setStatus('All Status');
+      setQuery('');
       setMockData({ customer_name: '', customer_email: '', customer_phone: '', amount: '', failure_reason: 'expired_card' });
       api.getTransactions().then(txns => setTransactions(txns));
     } catch (err) {
