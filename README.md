@@ -1,6 +1,5 @@
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/saurabh/razorpay-revenue-recovery/main/client/public/favicon.svg" alt="Clawback Logo" width="120" />
   <h1>Clawback — AI Revenue Recovery</h1>
   <p><strong>An autonomous AI agent built to recover lost revenue for Razorpay merchants.</strong></p>
   <p>
@@ -10,7 +9,7 @@
     <img src="https://img.shields.io/badge/Gemini_AI-8E75B2?style=for-the-badge&logo=googlebard&logoColor=white" />
     <a href="https://clawback-seven.vercel.app/" target="_blank"><img src="https://img.shields.io/badge/Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" /></a>
   </p>
-  <img src="assets/screenshots/hero.png" alt="Clawback Hero" width="100%" style="border-radius: 8px; margin-top: 20px;" />
+  <img src="./assets/screenshots/hero.png" alt="Clawback Hero" width="100%" style="border-radius: 8px; margin-top: 20px;" />
 </div>
 
 ---
@@ -34,12 +33,12 @@ Instead of treating all failures equally, Clawback uses a **LangGraph + Google G
 ## 📸 Dashboard & Interface
 
 <div align="center">
-  <img src="assets/screenshots/landing.png" alt="Clawback Home" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
-  <img src="assets/screenshots/dashboard.png" alt="Clawback Dashboard Analytics" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
+  <img src="./assets/screenshots/landing.png" alt="Clawback Home" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
+  <img src="./assets/screenshots/dashboard.png" alt="Clawback Dashboard Analytics" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
 </div>
 <div align="center">
-  <img src="assets/screenshots/transactions.png" alt="Recovery Transactions Ledger" width="49%" style="border-radius: 8px;" />
-  <img src="assets/screenshots/pipeline.png" alt="LangGraph AI Pipeline" width="49%" style="border-radius: 8px;" />
+  <img src="./assets/screenshots/transactions.png" alt="Recovery Transactions Ledger" width="49%" style="border-radius: 8px;" />
+  <img src="./assets/screenshots/pipeline.png" alt="LangGraph AI Pipeline" width="49%" style="border-radius: 8px;" />
 </div>
 
 ---
