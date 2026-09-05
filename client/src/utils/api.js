@@ -20,6 +20,7 @@ export const api = {
   },
   getTransaction: (id) => fetchApi(`/transactions/${id}`),
   getTransactionSummary: () => fetchApi('/transactions/summary'),
+  injectMockTransaction: (data) => fetchApi('/transactions/mock', { method: 'POST', body: JSON.stringify(data) }),
 
   // Recovery
   startRecoveryRun: () => fetchApi('/recovery/run', { method: 'POST' }),

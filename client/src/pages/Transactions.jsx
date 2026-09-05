@@ -36,13 +36,7 @@ export default function Transactions() {
     }
     setIsSubmittingMock(true);
     try {
-      const res = await fetch('/api/transactions/mock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mockData)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create mock transaction');
+      const data = await api.injectMockTransaction(mockData);
       
       alert('Mock transaction injected successfully!');
       setIsMockModalOpen(false);
