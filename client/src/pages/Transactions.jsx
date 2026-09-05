@@ -20,7 +20,7 @@ export default function Transactions() {
   
   const [mobileNav, setMobileNav] = useState(false);
   const [isMockModalOpen, setIsMockModalOpen] = useState(false);
-  const [mockData, setMockData] = useState({ customer_name: '', customer_email: '', amount: '', failure_reason: 'expired_card' });
+  const [mockData, setMockData] = useState({ customer_name: '', customer_email: '', customer_phone: '', amount: '', failure_reason: 'expired_card' });
   const [isSubmittingMock, setIsSubmittingMock] = useState(false);
 
   const [query, setQuery] = useState('');
@@ -46,7 +46,7 @@ export default function Transactions() {
       
       alert('Mock transaction injected successfully!');
       setIsMockModalOpen(false);
-      setMockData({ customer_name: '', customer_email: '', amount: '', failure_reason: 'expired_card' });
+      setMockData({ customer_name: '', customer_email: '', customer_phone: '', amount: '', failure_reason: 'expired_card' });
       api.getTransactions().then(txns => setTransactions(txns));
     } catch (err) {
       alert(err.message);
@@ -287,6 +287,17 @@ export default function Transactions() {
                   value={mockData.customer_email}
                   onChange={e => setMockData({...mockData, customer_email: e.target.value})}
                   required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Real Phone (Optional for SMS/WhatsApp)</label>
+                <input 
+                  type="tel" 
+                  className="glass-input" 
+                  placeholder="+919876543210" 
+                  value={mockData.customer_phone}
+                  onChange={e => setMockData({...mockData, customer_phone: e.target.value})}
                 />
               </div>
               <div className="form-group">

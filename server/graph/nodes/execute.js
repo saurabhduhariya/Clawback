@@ -12,7 +12,7 @@ async function execute(state) {
         const result = await razorpay.paymentLink.create({
           amount: transaction.amount,
           currency: "INR",
-          description: `Recovery: failed ${transaction.type} - ${transaction.id}`,
+          description: diagnosis?.customer_message || `Recovery: failed ${transaction.type} - ${transaction.id}`,
           customer: {
             name: transaction.customer_name,
             email: transaction.customer_email,

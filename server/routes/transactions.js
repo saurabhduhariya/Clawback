@@ -105,7 +105,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/transactions/mock — inject a mock transaction for hackathon judges
 router.post('/mock', async (req, res) => {
   try {
-    const { customer_name, customer_email, amount, failure_reason = 'expired_card' } = req.body;
+    const { customer_name, customer_email, customer_phone, amount, failure_reason = 'expired_card' } = req.body;
     
     if (!customer_name || !customer_email || !amount) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -114,12 +114,14 @@ router.post('/mock', async (req, res) => {
     const txId = 'tx_mock_' + Math.random().toString(36).substring(2, 10);
     const amtInt = parseInt(amount, 10);
     
+    const phoneToUse = customer_phone && customer_phone.trim() !== '' ? customer_phone : ('+919' + Math.floor(100000000 + Math.random() * 900000000).toString());
+    
     await queryOne(
       `INSERT INTO transactions (
         id, customer_name, customer_email, customer_phone, amount, 
-        currency, type, status, failure_reason, failure_source, attempt_count, risk_score
-      ) VALUES ($1, $2, $3, $4, $5, 'INR', 'payment', 'failed', $6, 'customer', 0, 85) RETURNING id`,
-      [txId, customer_name, customer_email, '+919999999999', amtInt * 100, failure_reason]
+        currency, type, status, failure_reason, attempt_count
+      ) VALUES ($1, $2, $3, $4, $5, 'INR', 'payment', 'failed', $6, 0) RETURNING id`,
+      [txId, customer_name, customer_email, phoneToUse, amtInt * 100, failure_reason]
     );
 
     res.json({ success: true, id: txId });
