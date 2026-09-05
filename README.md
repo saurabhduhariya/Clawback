@@ -23,7 +23,7 @@
     <a href="https://clawback-seven.vercel.app/" target="_blank"><img src="https://img.shields.io/badge/🚀_Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white" /></a>
   </p>
 
-  <img src="assets/screenshots/hero.png" alt="Clawback Hero" width="100%" style="border-radius: 12px; margin-top: 20px;" />
+  <img src="assets/screenshots/hero_v2.png" alt="Clawback Hero" width="100%" style="border-radius: 12px; margin-top: 20px;" />
 </div>
 
 <br/>
@@ -71,12 +71,12 @@ Instead of treating every failure the same way, Clawback uses a **LangGraph + Go
 ## 📸 Dashboard & Interface
 
 <div align="center">
-  <img src="assets/screenshots/landing.png" alt="Clawback Home" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
-  <img src="assets/screenshots/dashboard.png" alt="Clawback Dashboard Analytics" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
+  <img src="assets/screenshots/landing_v2.png" alt="Clawback Home" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
+  <img src="assets/screenshots/dashboard_v2.png" alt="Clawback Dashboard Analytics" width="49%" style="border-radius: 8px; margin-bottom: 10px;" />
 </div>
 <div align="center">
-  <img src="assets/screenshots/transactions.png" alt="Recovery Transactions Ledger" width="49%" style="border-radius: 8px;" />
-  <img src="assets/screenshots/pipeline.png" alt="LangGraph AI Pipeline" width="49%" style="border-radius: 8px;" />
+  <img src="assets/screenshots/transactions_v2.png" alt="Recovery Transactions Ledger" width="49%" style="border-radius: 8px;" />
+  <img src="assets/screenshots/pipeline_v2.png" alt="LangGraph AI Pipeline" width="49%" style="border-radius: 8px;" />
 </div>
 
 ---
