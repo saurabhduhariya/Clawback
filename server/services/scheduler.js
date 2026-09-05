@@ -82,7 +82,7 @@ async function triggerAutonomousRecovery() {
       [transactions.length, totalAtRisk]
     );
 
-    JobManager.startJob(runId, limit);
+    JobManager.startJob(runId, { limit });
     lastRunStats = {
       runId,
       time: new Date().toISOString(),

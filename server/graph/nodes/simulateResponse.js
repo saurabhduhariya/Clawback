@@ -1,7 +1,19 @@
 const { SIMULATION_RATES } = require("../../config/constants");
 
 async function simulateResponse(state) {
-  const { chosenAction } = state;
+  const { chosenAction, razorpayResponse } = state;
+
+  // If a real Razorpay API call succeeded (has a ref_id), don't randomly simulate failure
+  if (razorpayResponse && razorpayResponse.ref_id && !razorpayResponse.response?.error) {
+    return {
+      simulatedOutcome: "link_sent",
+      recoveryResult: "success",
+      auditLog: {
+        step: "simulate", timestamp: new Date().toISOString(),
+        detail: `Real Razorpay action succeeded (ref: ${razorpayResponse.ref_id}). Marking as success.`,
+      },
+    };
+  }
 
   // Non-action types don't need simulation
   if (["escalate_manual", "mark_unrecoverable"].includes(chosenAction)) {

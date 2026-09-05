@@ -3,7 +3,7 @@ import { useToast } from './ToastContext';
 
 const RecoveryContext = createContext(null);
 
-const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 export function RecoveryProvider({ children }) {
   const [runId, setRunId] = useState(null);

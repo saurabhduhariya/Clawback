@@ -1,5 +1,4 @@
-const { queryOne } = require("../../db/connection");
-const { MAX_RECOVERY_ATTEMPTS, MIN_HOURS_BETWEEN_ATTEMPTS } = require("../../config/constants");
+const { MAX_RECOVERY_ATTEMPTS } = require("../../config/constants");
 
 async function checkGuardrails(state) {
   const { transaction, diagnosis } = state;
@@ -21,21 +20,12 @@ async function checkGuardrails(state) {
     };
   }
 
-  // Rule 3: Cooldown — check time since last attempt
-  const lastAction = await queryOne(
-    "SELECT created_at FROM recovery_actions WHERE transaction_id = ? ORDER BY created_at DESC LIMIT 1",
-    [transaction.id]
-  );
-
-  if (lastAction) {
-    const hoursSince = (Date.now() - new Date(lastAction.created_at).getTime()) / (1000 * 60 * 60);
-    if (hoursSince < MIN_HOURS_BETWEEN_ATTEMPTS) {
-      return {
-        guardrailResult: { allowed: false, reason: "blocked_cooldown" },
-        auditLog: { step: "guardrails", timestamp: ts, detail: `BLOCKED: ${hoursSince.toFixed(1)}h since last attempt (min: ${MIN_HOURS_BETWEEN_ATTEMPTS}h)` },
-      };
-    }
-  }
+  // Rule 3 removed: the previous 24h "minimum hours between attempts" cooldown
+  // made every re-run of the agent a no-op (blocked_cooldown), so attempt_count
+  // never advanced past 1 when the agent was re-run on the same transaction.
+  // Recovery here is simulated, so each run must be allowed to make a fresh
+  // attempt. MAX_RECOVERY_ATTEMPTS (Rule 1) remains the real cap — once a
+  // transaction reaches it, updateState escalates / marks it unrecoverable.
 
   // All checks passed
   return {

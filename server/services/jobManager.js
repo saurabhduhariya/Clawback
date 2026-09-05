@@ -44,21 +44,24 @@ class JobManager {
    * The actual recovery pipeline execution (runs in background)
    */
   static async _executeJob(job, options) {
-        const { limit = 10, transactionId } = options;
+        const { limit = 10, transactionId, transactions: prefetchedTxns } = options;
     try {
-      let transactions = [];
-      if (transactionId) {
-        transactions = await queryAll(
-          `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue')`,
-          [transactionId]
-        );
-      } else {
-        transactions = await queryAll(
-          `SELECT * FROM transactions
-           WHERE status IN ('failed', 'abandoned', 'overdue')
-           AND attempt_count < max_attempts LIMIT ?`,
-          [limit]
-        );
+      // Use pre-fetched transactions from the route handler if available
+      let transactions = prefetchedTxns || [];
+      if (transactions.length === 0) {
+        if (transactionId) {
+          transactions = await queryAll(
+            `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue')`,
+            [transactionId]
+          );
+        } else {
+          transactions = await queryAll(
+            `SELECT * FROM transactions
+             WHERE status IN ('failed', 'abandoned', 'overdue')
+             AND attempt_count < max_attempts LIMIT ?`,
+            [limit]
+          );
+        }
       }
 
       if (transactions.length === 0) {

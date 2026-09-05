@@ -15,8 +15,8 @@ function saveDb() {
 }
 
 async function queryAll(sql, params = []) {
-  let i = 1;
-  const pgSql = sql.replace(/\?/g, () => "\$" + (i++));
+  // If query already uses $1 style, skip conversion
+  const pgSql = /\$\d/.test(sql) ? sql : sql.replace(/\?/g, (() => { let i = 1; return () => "$" + (i++); })());
   const result = await pool.query(pgSql, params);
   return result.rows;
 }
@@ -27,8 +27,8 @@ async function queryOne(sql, params = []) {
 }
 
 async function run(sql, params = []) {
-  let i = 1;
-  const pgSql = sql.replace(/\?/g, () => "\$" + (i++));
+  // If query already uses $1 style, skip conversion
+  const pgSql = /\$\d/.test(sql) ? sql : sql.replace(/\?/g, (() => { let i = 1; return () => "$" + (i++); })());
   
   const result = await pool.query(pgSql, params);
   

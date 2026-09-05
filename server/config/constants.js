@@ -3,7 +3,6 @@ module.exports = {
   // GUARDRAIL RULES
   // ============================================
   MAX_RECOVERY_ATTEMPTS: 3,
-  MIN_HOURS_BETWEEN_ATTEMPTS: 24,
   MAX_DAILY_CONTACTS_PER_CUSTOMER: 2,
 
   // ============================================

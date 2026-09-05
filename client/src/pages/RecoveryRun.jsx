@@ -58,9 +58,9 @@ function makeEdges(statuses) {
 }
 
 const nodeToStage = {
-  detectFailures: 'detect', calculateRiskScore: 'risk', diagnose: 'diagnose',
-  guardrails: 'guardrails', pickStrategy: 'strategy', executeRecovery: 'execute',
-  simulateOutreach: 'simulate', updateState: 'state',
+  detect: 'detect', calculateRiskScore: 'risk', diagnose: 'diagnose',
+  checkGuardrails: 'guardrails', pickStrategy: 'strategy', execute: 'execute',
+  simulateResponse: 'simulate', updateState: 'state',
 };
 
 export default function RecoveryRun() {
@@ -95,13 +95,26 @@ export default function RecoveryRun() {
     }
   }, [location.state, running, startRecovery, navigate]);
 
+  // High-water-mark: pipeline never jumps backwards
+  const highWaterRef = useRef(-1);
+
+  // Reset high-water-mark when a new run starts
+  useEffect(() => {
+    if (!running && !done) highWaterRef.current = -1;
+  }, [running, done]);
+
   // Derive active stage index from context
   const activeStage = useMemo(() => {
     if (done) return stagesDef.length;
+    let idx = -1;
     if (activeNode && nodeToStage[activeNode]) {
-      return stagesDef.findIndex(s => s.id === nodeToStage[activeNode]);
+      idx = stagesDef.findIndex(s => s.id === nodeToStage[activeNode]);
+    } else if (running) {
+      idx = highWaterRef.current >= 0 ? highWaterRef.current : 0;
     }
-    return running ? 0 : -1;
+    // Never go backwards
+    if (idx > highWaterRef.current) highWaterRef.current = idx;
+    return Math.max(idx, highWaterRef.current);
   }, [activeNode, done, running]);
 
   const statuses = useMemo(() =>
@@ -153,14 +166,9 @@ export default function RecoveryRun() {
             <h1>Recovery</h1>
             <p>Launch the autonomous AI agent to recover failed payments.</p>
           </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="run-agent" onClick={() => startRecovery(1000)} disabled={running}>
-              {running ? <><Activity className="spin" /> Running...</> : <><Zap /> Run Full Scan</>}
-            </button>
-            <button className="run-agent" onClick={runAgent} disabled={running}>
-              {running ? <><Activity className="spin" /> Running...</> : <><Zap /> Run Recovery Agent</>}
-            </button>
-          </div>
+          <button className="run-agent" onClick={runAgent} disabled={running}>
+            {running ? <><Activity className="spin" /> Running...</> : <><Zap /> Run Recovery Agent</>}
+          </button>
         </section>
 
         <section className="config-panel reveal delay-one" style={{ position: 'relative', zIndex: 50 }}>

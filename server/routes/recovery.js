@@ -45,8 +45,8 @@ router.post("/start", async (req, res) => {
       [transactions.length, totalAtRisk]
     );
 
-    // Start background job (returns immediately)
-    JobManager.startJob(runId, { limit, transactionId });
+    // Start background job with pre-fetched transactions (returns immediately)
+    JobManager.startJob(runId, { limit, transactionId, transactions });
 
     res.json({ runId, totalTransactions: transactions.length });
   } catch (err) {
