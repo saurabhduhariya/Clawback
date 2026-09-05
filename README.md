@@ -87,50 +87,50 @@ Clawback is built on a modern, decoupled event-driven architecture designed to s
 
 ```mermaid
 flowchart TB
-    Customer([" 🙍 Customer "])
-    RZP{{" 💳 Razorpay\nAPI & Webhooks "}}
-    Resend{{" ✉️ Resend\nEmail API "}}
+    Customer([" Customer "])
+    RZP{{" Razorpay\nAPI & Webhooks "}}
+    Resend{{" Resend\nEmail API "}}
 
-    subgraph ClientLayer[" 💻 CLIENT — Vercel "]
+    subgraph ClientLayer[" CLIENT — Vercel "]
         direction TB
         UI["React / Vite Dashboard"]
         Charts["Analytics & Live Agent Logs"]
         UI --- Charts
     end
 
-    subgraph ServerLayer[" ⚙️ SERVER — Render "]
+    subgraph ServerLayer[" SERVER — Render "]
         direction TB
-        WebhookAPI["🔌 Webhook Receiver\n/api/webhooks"]
+        WebhookAPI["Webhook Receiver\n/api/webhooks"]
         Verify{{"Verify\nSignature"}}
-        Scheduler["⏱️ Cron Scheduler"]
-        AgentEngine["🧠 LangGraph\nAgent Engine"]
-        LinkGen["🔗 Payment Link\nGenerator"]
-        EmailGen["📧 Email\nGenerator"]
+        Scheduler["Cron Scheduler"]
+        AgentEngine["LangGraph\nAgent Engine"]
+        LinkGen["Payment Link\nGenerator"]
+        EmailGen["Email\nGenerator"]
     end
 
-    subgraph DataLayer[" 🐘 DATABASE — Supabase "]
+    subgraph DataLayer[" DATABASE — Supabase "]
         DB[("PostgreSQL\ntransactions · metrics")]
     end
 
-    Customer == "1️⃣ Payment fails" ==> RZP
-    RZP -- "2️⃣ payment.failed webhook" --> WebhookAPI
+    Customer == "Payment fails" ==> RZP
+    RZP -- "payment.failed webhook" --> WebhookAPI
     WebhookAPI --> Verify
-    Verify -- "✅ valid" --> DB
-    Verify -. "❌ invalid → 401" .-> WebhookAPI
+    Verify -- "valid" --> DB
+    Verify -. "invalid → 401" .-> WebhookAPI
 
-    Scheduler == "3️⃣ trigger recovery run" ==> AgentEngine
+    Scheduler == "trigger recovery run" ==> AgentEngine
     DB -. "fetch abandoned txns" .-> AgentEngine
 
-    AgentEngine -- "4️⃣ safe + recoverable" --> LinkGen
-    AgentEngine -. "🛑 blocked by guardrails" .-> DB
+    AgentEngine -- "safe + recoverable" --> LinkGen
+    AgentEngine -. "blocked by guardrails" .-> DB
     LinkGen -- "create payment link" --> RZP
     RZP -. "returns checkout URL" .-> LinkGen
     LinkGen --> EmailGen
     AgentEngine -- "email-only strategy" --> EmailGen
 
-    EmailGen == "5️⃣ dispatch" ==> Resend
+    EmailGen == "dispatch" ==> Resend
     Resend -- "recovery email" --> Customer
-    Customer -. "6️⃣ completes payment" .-> RZP
+    Customer -. "completes payment" .-> RZP
     RZP -. "payment.captured webhook" .-> WebhookAPI
 
     DB == "live analytics" ==> UI
@@ -152,7 +152,7 @@ flowchart TB
     style DataLayer fill:#2e1414,stroke:#742a2a,stroke-width:1px,color:#fff
 ```
 
-> Numbered arrows (`1️⃣ → 6️⃣`) trace the happy path from a failed payment to a recovered one; dotted arrows show async/fallback paths (guardrail blocks, invalid signatures, capture confirmation).
+> Numbered arrows (`→ 6️⃣`) trace the happy path from a failed payment to a recovered one; dotted arrows show async/fallback paths (guardrail blocks, invalid signatures, capture confirmation).
 
 ---
 
@@ -213,15 +213,15 @@ This traces a **single failed payment** end-to-end — from the initial webhook 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Cust as 🙍 Customer
-    participant RZP as 💳 Razorpay
-    participant API as 🔌 Webhook API
-    participant DB as 🐘 PostgreSQL
-    participant Cron as ⏱️ Scheduler
-    participant Agent as 🧠 LangGraph Agent
-    participant Gemini as ✨ Gemini
-    participant Pay as 🔗 Payment Service
-    participant Mail as ✉️ Resend
+    actor Cust as Customer
+    participant RZP as Razorpay
+    participant API as Webhook API
+    participant DB as PostgreSQL
+    participant Cron as Scheduler
+    participant Agent as LangGraph Agent
+    participant Gemini as Gemini
+    participant Pay as Payment Service
+    participant Mail as Resend
 
     Cust->>RZP: Attempts payment
     RZP--xCust: Payment declined
