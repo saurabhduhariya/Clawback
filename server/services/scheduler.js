@@ -78,7 +78,8 @@ async function triggerAutonomousRecovery() {
     const totalAtRisk = transactions.reduce((sum, t) => sum + t.amount, 0);
 
     const { lastInsertRowid: runId } = await run(
-      `INSERT INTO recovery_runs (total_transactions, total_at_risk_amount) VALUES ($1, $2) RETURNING id`,
+      `INSERT INTO recovery_runs (total_transactions, total_at_risk_amount, source)
+       VALUES ($1, $2, 'scheduler') RETURNING id`,
       [transactions.length, totalAtRisk]
     );
 

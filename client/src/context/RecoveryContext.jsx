@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from './ToastContext';
+import { authHeaders, withApiKey, API_BASE_URL } from '../utils/api';
 
 const RecoveryContext = createContext(null);
 
-const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+const API_BASE = API_BASE_URL;
 
 export function RecoveryProvider({ children }) {
   const [runId, setRunId] = useState(null);
@@ -36,8 +37,9 @@ export function RecoveryProvider({ children }) {
       eventSourceRef.current = null;
     }
 
+    // EventSource can't send headers, so the API key rides in the query string.
     const es = new EventSource(
-      `${API_BASE}/recovery/stream/${jobRunId}?lastIndex=${lastIndex}`
+      withApiKey(`${API_BASE}/recovery/stream/${jobRunId}?lastIndex=${lastIndex}`)
     );
     eventSourceRef.current = es;
 
@@ -108,7 +110,7 @@ export function RecoveryProvider({ children }) {
     try {
       const res = await fetch(`${API_BASE}/recovery/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(bodyPayload),
       });
 
@@ -155,7 +157,7 @@ export function RecoveryProvider({ children }) {
    */
   const checkExistingJob = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/recovery/latest`);
+      const res = await fetch(`${API_BASE}/recovery/latest`, { headers: authHeaders() });
       const data = await res.json();
 
       if (data.runId && data.status === 'running') {

@@ -41,7 +41,8 @@ router.post("/start", async (req, res) => {
 
     // Create recovery run record in DB
     const { lastInsertRowid: runId } = await run(
-      `INSERT INTO recovery_runs (total_transactions, total_at_risk_amount) VALUES (?, ?) RETURNING id`,
+      `INSERT INTO recovery_runs (total_transactions, total_at_risk_amount, source)
+       VALUES (?, ?, 'batch') RETURNING id`,
       [transactions.length, totalAtRisk]
     );
 

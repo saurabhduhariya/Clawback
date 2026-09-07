@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MessageSquare, X, Send, Bot, User, Activity, Zap } from 'lucide-react';
-import { fetchApi } from '../utils/api'; 
+import { authHeaders, API_BASE_URL } from '../utils/api';
 
 export default function RecoverBot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,13 +55,9 @@ export default function RecoverBot() {
 
     try {
       // We can't use our simple fetchApi wrapper for SSE, we need native fetch to process the stream
-      const token = localStorage.getItem('token');
-      const res = await fetch(import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/chat` : 'http://localhost:3001/api/chat', {
+      const res = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           message: userMessage,
           chat_history: newMessages.slice(0, -1),
@@ -69,7 +65,11 @@ export default function RecoverBot() {
         })
       });
 
-      if (!res.ok) throw new Error('Network response was not ok');
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('Unauthorized — API key missing or invalid.');
+        if (res.status === 429) throw new Error('Too many messages. Please wait a moment.');
+        throw new Error('Network response was not ok');
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();

@@ -6,6 +6,48 @@ module.exports = {
   MAX_DAILY_CONTACTS_PER_CUSTOMER: 2,
 
   // ============================================
+  // TRANSACTION STATUSES
+  // Single source of truth for the status vocabulary.
+  // ============================================
+  STATUS: {
+    FAILED: 'failed',
+    ABANDONED: 'abandoned',
+    OVERDUE: 'overdue',
+    RECOVERY_SENT: 'recovery_sent',
+    ESCALATED: 'escalated',
+    RECOVERED: 'recovered',
+    UNRECOVERABLE: 'unrecoverable',
+  },
+
+  // Statuses the agent may pick up for a fresh recovery attempt.
+  // 'recovery_sent' is included deliberately: a dispatched link that went
+  // unanswered must escalate on a later attempt rather than sit forever.
+  RECOVERABLE_STATUSES: ['failed', 'abandoned', 'overdue', 'recovery_sent'],
+
+  // Statuses whose amount is still outstanding — i.e. genuinely "at risk".
+  // 'escalated' is at risk but NOT auto-recoverable (a human owns it now).
+  AT_RISK_STATUSES: ['failed', 'abandoned', 'overdue', 'recovery_sent', 'escalated'],
+
+  // Every guardrail block reason MUST map to a terminal status here. An
+  // unmapped reason would leave the transaction selectable on every future
+  // run; updateState.js warns loudly and burns an attempt as a safety net.
+  TERMINAL_GUARDRAIL_STATUS: {
+    blocked_max_attempts: 'unrecoverable',
+    blocked_unrecoverable: 'unrecoverable',
+  },
+
+  // ============================================
+  // RECOVERY RESULTS
+  // 'success' means money was actually collected — nothing else may claim it.
+  // ============================================
+  RECOVERY_RESULT: {
+    SUCCESS: 'success',        // customer paid
+    DISPATCHED: 'dispatched',  // outreach delivered, no payment yet
+    ESCALATED: 'escalated',    // handed to a human
+    FAILED: 'failed',          // action failed, or customer declined again
+  },
+
+  // ============================================
   // FAILURE TYPES
   // ============================================
   FAILURE_TYPES: {
@@ -28,7 +70,8 @@ module.exports = {
 
   // ============================================
   // SIMULATION PROBABILITIES
-  // What % of customers pay after each recovery action type
+  // Modelled customer behaviour AFTER an action was successfully dispatched.
+  // These never apply to an action that failed at the API layer.
   // ============================================
   SIMULATION_RATES: {
     create_payment_link: { paid: 0.55, ignored: 0.30, failed_again: 0.15 },

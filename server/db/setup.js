@@ -47,7 +47,11 @@ async function setup() {
       payment_links_created INTEGER DEFAULT 0,
       invoices_created      INTEGER DEFAULT 0,
       reminders_sent        INTEGER DEFAULT 0,
-      escalations           INTEGER DEFAULT 0
+      escalations           INTEGER DEFAULT 0,
+      -- Where the run came from: batch | scheduler | webhook | chat | manual.
+      -- Webhook/chat recoveries get their own lightweight run row so their
+      -- recovery_actions insert satisfies the run_id foreign key.
+      source                TEXT DEFAULT 'batch'
     );
   `);
   console.log("✅ Table \"recovery_runs\" created");
@@ -76,6 +80,17 @@ async function setup() {
     );
   `);
   console.log("✅ Table \"recovery_actions\" created");
+
+  // Razorpay retries webhooks; dedupe on its event id so one event can't launch
+  // several agent runs.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS webhook_events (
+      event_id     TEXT PRIMARY KEY,
+      event_type   TEXT,
+      received_at  TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  console.log("✅ Table \"webhook_events\" created");
 
   console.log("\n🎉 Database setup complete!");
   process.exit(0);

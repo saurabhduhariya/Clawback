@@ -6,25 +6,34 @@ const buildRecoveryGraph = require('../graph/recoveryGraph');
 const razorpay = require('../config/razorpay');
 const { tool } = require('@langchain/core/tools');
 const { z } = require('zod');
+const { runReadOnlyQuery, MAX_ROWS } = require('../services/readOnlySql');
+const { createAdHocRun, completeAdHocRun } = require('../services/runRecord');
+const { notifyAllowed } = require('../config/notifyPolicy');
 
 const { createReactAgent } = require('@langchain/langgraph/prebuilt');
 
-// Tool 1: SQL Database Query
+// Tool 1: SQL Database Query — read-only, SELECT-only, row-capped, and run
+// inside a READ ONLY transaction with a statement timeout. Chat input is
+// untrusted, so a prompt injection must not be able to reach a write.
 const queryDatabaseTool = tool(
   async ({ query }) => {
     try {
-      console.log(`[Tool] Executing SQL: ${query}`);
-      const results = await queryAll(query);
-      return JSON.stringify(results.slice(0, 50)); // limit to 50 rows
+      const { rows, sql } = await runReadOnlyQuery(query);
+      console.log(`[Tool] Read-only SQL OK (${rows.length} rows): ${sql}`);
+      return JSON.stringify(rows);
     } catch (err) {
-      return `Error executing query: ${err.message}`;
+      console.warn(`[Tool] SQL rejected/failed: ${err.message} — query: ${query}`);
+      return `Query refused or failed: ${err.message}`;
     }
   },
   {
     name: "query_database",
-    description: "Executes a SQL SELECT query against the PostgreSQL database. Use this to analyze transactions, find specific records, or calculate metrics.",
+    description:
+      `Runs a READ-ONLY PostgreSQL SELECT against the database and returns up to ${MAX_ROWS} rows. ` +
+      `Only SELECT/WITH queries are permitted — writes, DDL, multiple statements, and comments are rejected. ` +
+      `Use this to analyze transactions, find records, or calculate metrics.`,
     schema: z.object({
-      query: z.string().describe("A valid PostgreSQL SELECT query."),
+      query: z.string().describe("A single PostgreSQL SELECT query. No semicolons, no comments, no writes."),
     }),
   }
 );
@@ -32,16 +41,25 @@ const queryDatabaseTool = tool(
 // Tool 2: Trigger Autonomous Recovery
 const triggerRecoveryTool = tool(
   async ({ transactionId }) => {
+    let runId = null;
     try {
       console.log(`[Tool] Triggering recovery for: ${transactionId}`);
-      // check if it exists
-      const txn = await queryAll('SELECT id FROM transactions WHERE id = ?', [transactionId]);
+      const txn = await queryAll('SELECT id, amount FROM transactions WHERE id = ?', [transactionId]);
       if (txn.length === 0) return `Error: Transaction ${transactionId} not found.`;
-      
+
+      // A real recovery_runs row — recovery_actions.run_id has a NOT NULL FK to
+      // it, so the old `runId: 0` made every chat-triggered audit insert fail.
+      runId = await createAdHocRun('chat', txn[0].amount || 0);
+
       const graph = buildRecoveryGraph();
-      const result = await graph.invoke({ transactionId, runId: 0 });
-      return `Recovery pipeline triggered. Chosen action: ${result.chosenAction}. Result: ${result.recoveryResult}`;
+      const result = await graph.invoke({ transactionId, runId });
+      await completeAdHocRun(runId, {
+        recovered: result?.recoveryResult === 'success' ? txn[0].amount || 0 : 0,
+      });
+
+      return `Recovery pipeline triggered (run ${runId}). Chosen action: ${result.chosenAction}. Result: ${result.recoveryResult}`;
     } catch (err) {
+      await completeAdHocRun(runId, { recovered: 0 });
       return `Error triggering recovery: ${err.message}`;
     }
   },
@@ -59,12 +77,13 @@ const generatePaymentLinkTool = tool(
   async ({ amount, email, name, description }) => {
     try {
       console.log(`[Tool] Generating link for ${amount} INR to ${email}`);
+      const mayNotify = notifyAllowed({ email });
       const result = await razorpay.paymentLink.create({
         amount: amount * 100, // convert to paise
         currency: "INR",
         description: description || "Payment Recovery",
         customer: { name: name || "Customer", email },
-        notify: { sms: false, email: false },
+        notify: { sms: mayNotify, email: mayNotify },
       });
       return `Payment link created successfully! URL: ${result.short_url}`;
     } catch (err) {
@@ -140,10 +159,19 @@ You have access to tools that can read the database, trigger autonomous recoveri
 Always use markdown to format your responses (e.g. bold text, bullet points). Make links clickable.
 If you generate a payment link, present it clearly to the user.
 
+The query_database tool is strictly READ-ONLY: only a single SELECT (or WITH) statement,
+no semicolons, no comments, and at most ${MAX_ROWS} rows. It will refuse anything that
+writes or alters data. If a user asks you to modify, delete, or drop data, explain that
+you can only read — never attempt to work around the restriction.
+
 Database Schema (PostgreSQL):
 - Table: transactions (id, customer_name, customer_email, customer_phone, amount, currency, type, status, failure_reason, failure_source, attempt_count, max_attempts, recovered_amount)
-- Table: recovery_runs (id, status, total_transactions, total_at_risk_amount, total_recovered, recovery_rate)
-- Table: recovery_actions (id, transaction_id, chosen_action, razorpay_api_called, recovery_result)`;
+- Table: recovery_runs (id, status, source, total_transactions, total_at_risk_amount, total_recovered, recovery_rate)
+- Table: recovery_actions (id, transaction_id, chosen_action, razorpay_api_called, recovery_result)
+
+Transaction status vocabulary: failed, abandoned, overdue, recovery_sent (outreach delivered,
+not yet paid), escalated (a human owns it), recovered (money actually collected), unrecoverable.
+Only 'recovered' means the money came in — 'recovery_sent' is still outstanding.`;
 
 
 
