@@ -780,3 +780,91 @@ body::before {
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+
+/* ── RecoverBot Chat Prose Styles ── */
+.recoverbot-prose {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #d4d4d8;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.recoverbot-prose p { margin: 0.3em 0; }
+.recoverbot-prose p:first-child { margin-top: 0; }
+.recoverbot-prose p:last-child { margin-bottom: 0; }
+.recoverbot-prose strong { color: #fff; font-weight: 600; }
+.recoverbot-prose em { color: #a1a1aa; }
+.recoverbot-prose a { color: #34d399; text-decoration: underline; text-underline-offset: 2px; }
+.recoverbot-prose a:hover { color: #6ee7b7; }
+.recoverbot-prose ul, .recoverbot-prose ol { margin: 0.4em 0; padding-left: 1.2em; }
+.recoverbot-prose li { margin: 0.15em 0; }
+.recoverbot-prose li::marker { color: #52525b; }
+.recoverbot-prose code {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: #34d399;
+}
+.recoverbot-prose pre {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 0.7em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+  max-width: 100%;
+}
+.recoverbot-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #a1a1aa;
+}
+.recoverbot-prose h1, .recoverbot-prose h2, .recoverbot-prose h3 {
+  color: #fff;
+  font-weight: 700;
+  margin: 0.6em 0 0.3em;
+  font-size: 13px;
+}
+.recoverbot-prose h1 { font-size: 14px; }
+.recoverbot-prose blockquote {
+  border-left: 2px solid #34d399;
+  padding-left: 0.7em;
+  margin: 0.5em 0;
+  color: #a1a1aa;
+}
+/* Tables */
+.recoverbot-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 11px;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.recoverbot-prose th {
+  background: rgba(255,255,255,0.04);
+  text-align: left;
+  padding: 0.4em 0.6em;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #e4e4e7;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.recoverbot-prose td {
+  padding: 0.35em 0.6em;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+.recoverbot-prose tr:hover td { background: rgba(255,255,255,0.02); }
+.recoverbot-prose hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin: 0.6em 0;
+}

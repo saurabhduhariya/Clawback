@@ -1,44 +1,76 @@
 import { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MessageSquare, X, Send, Bot, User, Activity, Zap } from 'lucide-react';
-import { authHeaders, API_BASE_URL } from '../utils/api';
+import { X, Send, Bot, User, Zap, Database, Search, BarChart3, Activity, CreditCard, Brain, Trash2, Sparkles } from 'lucide-react';
+
+const TOOL_ICONS = {
+  chart: BarChart3,
+  search: Search,
+  diagnosis: Brain,
+  analysis: BarChart3,
+  database: Database,
+  recovery: Activity,
+  payment: CreditCard,
+  default: Zap,
+};
 
 export default function RecoverBot() {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
   const [messages, setMessages] = useState([
-    { role: 'ai', content: "Hi! I'm RecoverBot. I can analyze revenue data, trigger recoveries, or generate payment links for you. How can I help?" }
+    { role: 'ai', content: "Hey! I'm **RecoverBot** — your AI finance co-pilot. I can analyze revenue, diagnose failures, trigger recoveries, or create payment links. What do you need?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
+  const [toolLabel, setToolLabel] = useState('');
+  const [toolIcon, setToolIcon] = useState('default');
   const endOfMessagesRef = useRef(null);
 
   useEffect(() => {
     const handleOpenBot = (e) => {
       setIsOpen(true);
       if (e.detail && e.detail.prompt) {
-        setTimeout(() => {
-          handleSend(e.detail.prompt);
-        }, 100);
+        setTimeout(() => handleSend(e.detail.prompt), 100);
       }
     };
     window.addEventListener('open-bot', handleOpenBot);
     return () => window.removeEventListener('open-bot', handleOpenBot);
   }, []);
 
-  const quickActions = [
-    "What is our recovery rate?",
-    "Show recent failed payments",
-    "Explain AI strategies"
-  ];
+  // Context-aware quick actions based on current page
+  const quickActions = (() => {
+    const path = location.pathname;
+    if (path.includes('/transactions')) return [
+      "Show top 5 failed payments",
+      "Analyze why payments failed this week",
+      "What's the most common failure reason?"
+    ];
+    if (path.includes('/recover')) return [
+      "How many recoveries happened today?",
+      "Show recovery success rate",
+      "What's the best recovery strategy?"
+    ];
+    return [
+      "📊 Show me recovery metrics",
+      "🔍 Find recent failed payments",
+      "📈 Analyze failure trends",
+    ];
+  })();
 
   useEffect(() => {
     if (endOfMessagesRef.current) {
       endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen, isLoading, activeTool]);
+
+  const clearChat = () => {
+    setMessages([
+      { role: 'ai', content: "Chat cleared! How can I help you?" }
+    ]);
+  };
 
   const handleSend = async (textOverride) => {
     const userMessage = typeof textOverride === 'string' ? textOverride.trim() : input.trim();
@@ -49,27 +81,26 @@ export default function RecoverBot() {
     setMessages(newMessages);
     setIsLoading(true);
     setActiveTool(null);
+    setToolLabel('');
 
-    // Add a placeholder for the AI's response
     setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
     try {
-      // We can't use our simple fetchApi wrapper for SSE, we need native fetch to process the stream
-      const res = await fetch(`${API_BASE_URL}/chat`, {
+      const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL + '/api' : '/api';
+      const res = await fetch(API_BASE + '/chat', {
         method: 'POST',
-        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
-          chat_history: newMessages.slice(0, -1),
-          context: { path: window.location.pathname }
+          chat_history: newMessages.filter(m => m.content).slice(-10),
+          context: { 
+            path: window.location.pathname,
+            transactionId: window.location.pathname.match(/pay_[a-zA-Z0-9]+/)?.[0] || null,
+          }
         })
       });
 
-      if (!res.ok) {
-        if (res.status === 401) throw new Error('Unauthorized — API key missing or invalid.');
-        if (res.status === 429) throw new Error('Too many messages. Please wait a moment.');
-        throw new Error('Network response was not ok');
-      }
+      if (!res.ok) throw new Error('Network response was not ok');
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -82,7 +113,7 @@ export default function RecoverBot() {
         
         buffer += decoder.decode(value, { stream: true });
         const parts = buffer.split('\n\n');
-        buffer = parts.pop(); // Keep the last incomplete chunk in buffer
+        buffer = parts.pop();
         
         for (const part of parts) {
           const lines = part.split('\n');
@@ -99,13 +130,16 @@ export default function RecoverBot() {
                   });
                 } else if (data.type === 'tool_start') {
                   setActiveTool(data.name);
+                  setToolLabel(data.label || 'Processing...');
+                  setToolIcon(data.icon || 'default');
                 } else if (data.type === 'tool_end') {
                   setActiveTool(null);
+                  setToolLabel('');
                 } else if (data.type === 'error') {
                   throw new Error(data.error);
                 }
               } catch (e) {
-                console.error('Error parsing SSE:', e);
+                if (e.message && !e.message.includes('JSON')) throw e;
               }
             }
           }
@@ -114,14 +148,17 @@ export default function RecoverBot() {
     } catch (err) {
       setMessages(prev => {
         const updated = [...prev];
-        updated[updated.length - 1].content = `Error: ${err.message}`;
+        updated[updated.length - 1].content = '⚠️ Error: ' + err.message;
         return updated;
       });
     } finally {
       setIsLoading(false);
       setActiveTool(null);
+      setToolLabel('');
     }
   };
+
+  const ToolIconComponent = TOOL_ICONS[toolIcon] || Zap;
 
   return (
     <>
@@ -129,7 +166,7 @@ export default function RecoverBot() {
         initial={{ scale: 0 }}
         animate={{ scale: isOpen ? 0 : 1 }}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-2xl bg-[#111113b8] backdrop-blur-[18px] border border-white/10 text-[#a1a1aa] shadow-[0_12px_30px_rgba(0,0,0,0.5)] flex items-center justify-center z-[9999] hover:scale-105 hover:shadow-[0_0_30px_rgba(52,211,153,0.3)] hover:text-[#34d399] hover:border-[#34d39940] transition-all"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl bg-[#111113e0] backdrop-blur-[18px] border border-white/10 text-[#a1a1aa] shadow-[0_12px_30px_rgba(0,0,0,0.5)] flex items-center justify-center z-[9999] hover:scale-110 hover:shadow-[0_0_30px_rgba(52,211,153,0.4)] hover:text-[#34d399] hover:border-[#34d39940] transition-all duration-200"
       >
         <Bot className="w-6 h-6" />
       </motion.button>
@@ -141,65 +178,92 @@ export default function RecoverBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 w-[360px] h-[580px] max-h-[85vh] bg-[#09090be6] backdrop-blur-[32px] border border-[#ffffff15] rounded-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),0_0_40px_-10px_rgba(52,211,153,0.1)] z-[9999] flex flex-col overflow-hidden"
+            className="fixed bottom-6 right-6 w-[420px] h-[640px] max-h-[88vh] bg-[#09090bf0] backdrop-blur-[40px] border border-[#ffffff12] rounded-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.9),0_0_60px_-15px_rgba(52,211,153,0.08)] z-[9999] flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="h-16 flex items-center justify-between px-4 border-b border-[#ffffff10] bg-[#00000040]">
+            <div className="h-14 flex items-center justify-between px-4 border-b border-[#ffffff08] bg-[#00000040]">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-black border border-white/10 flex items-center justify-center text-[#34d399]">
-                  <Bot className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-[#34d399]">
+                  <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-[13px] font-bold text-white tracking-wide">RecoverBot</h3>
                   <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> AI Co-pilot
                   </p>
                 </div>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-zinc-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={clearChat} className="text-zinc-500 hover:text-zinc-300 transition-colors p-2 rounded-lg hover:bg-white/5" title="Clear chat">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button onClick={() => setIsOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin">
               {messages.map((msg, i) => (
-                <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  {msg.role === 'user' && (<div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-zinc-800"><User className="w-4 h-4 text-white" /></div>)}
-                  <div className={`px-3.5 py-2.5 rounded-2xl max-w-[85%] break-words overflow-hidden text-[12.5px] leading-relaxed shadow-sm ${
+                <motion.div 
+                  key={i} 
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={"flex gap-2.5 " + (msg.role === 'user' ? 'flex-row-reverse' : '')}
+                >
+                  {msg.role === 'user' && (
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-zinc-800/80 border border-white/5">
+                      <User className="w-3.5 h-3.5 text-zinc-300" />
+                    </div>
+                  )}
+                  <div className={"rounded-2xl text-[12.5px] leading-relaxed " + (
                     msg.role === 'user' 
-                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-50 rounded-tr-none' 
-                      : 'bg-[#ffffff05] border border-white/5 text-[#a1a1aa] rounded-tl-none w-full min-w-0 prose prose-invert prose-p:text-[12.5px] prose-li:text-[12.5px] prose-strong:text-white prose-p:leading-snug prose-a:text-emerald-400 prose-pre:bg-black/50 prose-pre:border prose-pre:border-white/10 prose-pre:max-w-full prose-pre:overflow-x-auto prose-sm prose-table:w-full prose-table:border-collapse prose-table:border prose-table:border-white/10 prose-th:bg-white/5 prose-th:px-3 prose-th:py-2 prose-th:border prose-th:border-white/10 prose-td:px-3 prose-td:py-2 prose-td:border prose-td:border-white/10 prose-th:text-left [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full'
-                  }`}>
+                      ? 'px-3.5 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-50 rounded-tr-sm max-w-[80%]' 
+                      : 'px-4 py-3 bg-[#ffffff04] border border-[#ffffff08] text-[#d4d4d8] rounded-tl-sm w-full min-w-0'
+                  )}>
                     {msg.role === 'user' ? (
                       msg.content
                     ) : (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || '...'}</ReactMarkdown>
+                      <div className="recoverbot-prose">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content || '...'}</ReactMarkdown>
+                      </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
               
               {activeTool && (
-                <div className="flex gap-3">
-                  
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-none bg-[#ffffff02] border border-white/5 flex items-center gap-2 text-xs text-zinc-400">
-                    <Zap className="w-3 h-3 text-amber-400" />
-                    Running tool: <span className="font-mono text-white/70">{activeTool}</span>...
+                <motion.div 
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-2.5"
+                >
+                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-[#ffffff04] border border-amber-500/15 flex items-center gap-2.5 text-[11px]">
+                    <span className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                      <ToolIconComponent className="w-3 h-3 text-amber-400 animate-pulse" />
+                    </span>
+                    <span className="text-amber-300/90 font-medium">{toolLabel}</span>
+                    <span className="flex gap-0.5">
+                      <span className="w-1 h-1 rounded-full bg-amber-400/60 animate-bounce" style={{animationDelay: '0ms'}}></span>
+                      <span className="w-1 h-1 rounded-full bg-amber-400/60 animate-bounce" style={{animationDelay: '150ms'}}></span>
+                      <span className="w-1 h-1 rounded-full bg-amber-400/60 animate-bounce" style={{animationDelay: '300ms'}}></span>
+                    </span>
                   </div>
-                </div>
+                </motion.div>
               )}
               <div ref={endOfMessagesRef} />
             </div>
 
             {/* Quick Actions */}
-            {messages.length === 1 && (
-              <div className="px-4 pb-3 flex flex-wrap gap-2">
+            {messages.length <= 2 && !isLoading && (
+              <div className="px-4 pb-2 flex flex-wrap gap-1.5">
                 {quickActions.map(action => (
                   <button
                     key={action}
                     onClick={() => handleSend(action)}
-                    className="text-[11px] px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
+                    className="text-[10.5px] px-3 py-1.5 rounded-full border border-white/8 bg-white/[0.03] text-zinc-400 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/20 transition-all duration-200"
                   >
                     {action}
                   </button>
@@ -208,20 +272,20 @@ export default function RecoverBot() {
             )}
 
             {/* Input Area */}
-            <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="p-3 bg-[#00000040] border-t border-[#ffffff10]">
+            <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="p-3 bg-[#00000030] border-t border-[#ffffff08]">
               <div className="relative flex items-center">
                 <input
                   type="text"
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder="Ask RecoverBot..."
-                  className="w-full bg-[#ffffff05] border border-white/10 rounded-xl pl-4 pr-12 py-2.5 text-[13px] text-[#d4d4d8] placeholder:text-[#52525b] focus:outline-none focus:border-[#34d39955] transition-all"
+                  placeholder="Ask RecoverBot anything..."
+                  className="w-full bg-[#ffffff06] border border-white/8 rounded-xl pl-4 pr-12 py-2.5 text-[13px] text-[#e4e4e7] placeholder:text-[#52525b] focus:outline-none focus:border-[#34d39930] focus:bg-[#ffffff08] transition-all duration-200"
                   disabled={isLoading}
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || isLoading}
-                  className="absolute right-2 p-1.5 bg-[#34d399] text-[#09090b] rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 shadow-[0_0_15px_rgba(52,211,153,0.2)] transition-all"
+                  className="absolute right-2 p-1.5 bg-[#34d399] text-[#09090b] rounded-lg font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-110 shadow-[0_0_12px_rgba(52,211,153,0.15)] transition-all"
                 >
                   <Send className="w-4 h-4" />
                 </button>
