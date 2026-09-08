@@ -5,6 +5,7 @@ import { authHeaders, withApiKey, API_BASE_URL } from '../utils/api';
 const RecoveryContext = createContext(null);
 
 const API_BASE = API_BASE_URL;
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 export function RecoveryProvider({ children }) {
   const [runId, setRunId] = useState(null);
@@ -13,9 +14,11 @@ export function RecoveryProvider({ children }) {
   const [done, setDone] = useState(false);
   const [results, setResults] = useState(null);
   const [activeNode, setActiveNode] = useState(null);
+  const [streamLost, setStreamLost] = useState(false);
   const { addToast } = useToast();
   const eventSourceRef = useRef(null);
   const logCountRef = useRef(0);
+  const reconnectAttemptsRef = useRef(0);
 
   // Keep logCountRef in sync
   useEffect(() => {
@@ -27,17 +30,24 @@ export function RecoveryProvider({ children }) {
     setLogs(prev => [...prev, { type, msg, time }]);
   }, []);
 
+  /** Close the EventSource and reset connection state */
+  const closeSSE = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    reconnectAttemptsRef.current = 0;
+  }, []);
+
   /**
    * Connect (or reconnect) to the SSE stream for a given runId.
    * Uses lastIndex to replay any missed logs since disconnection.
    */
   const connectSSE = useCallback((jobRunId, lastIndex = 0) => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    closeSSE();
+    setStreamLost(false);
+    reconnectAttemptsRef.current = 0;
 
-    // EventSource can't send headers, so the API key rides in the query string.
     const es = new EventSource(
       withApiKey(`${API_BASE}/recovery/stream/${jobRunId}?lastIndex=${lastIndex}`)
     );
@@ -54,40 +64,62 @@ export function RecoveryProvider({ children }) {
       addLog('highlight', `[${d.transactionId}] ${d.detail}`);
     });
 
+    // P3-2: Application-level error event — the job hit an error
     es.addEventListener('error', (e) => {
       try {
         const d = JSON.parse(e.data);
         addLog('error', d.error || 'Unknown error');
         addToast(d.error || 'Recovery error occurred', 'error');
       } catch {
-        // SSE connection-level error (server down, etc.)
+        // SSE connection-level error — handled in es.onerror below
+        return;
       }
+      // Job errored out: stop everything
+      setRunning(false);
+      setDone(true);
+      setActiveNode(null);
+      closeSSE();
     });
 
     es.addEventListener('complete', (e) => {
       const d = JSON.parse(e.data);
       addLog('success', `Recovery complete! Processed ${d.totalProcessed || 0} transactions. Recovered INR ${((d.totalRecovered || 0) / 100).toLocaleString('en-IN')} (${d.recoveryRate || 0}% rate)`);
       
-      // FIRE TOAST
       if (d.totalRecovered > 0) {
         addToast(`✓ ₹${((d.totalRecovered || 0) / 100).toLocaleString('en-IN')} recovered automatically!`, 'success');
       } else {
-        addToast(`Recovery completed. No funds recovered this time.`, 'info');
+        addToast('Recovery completed. No funds recovered this time.', 'info');
       }
 
       setResults(d);
       setDone(true);
       setRunning(false);
       setActiveNode(null);
-      es.close();
-      eventSourceRef.current = null;
+      closeSSE();
     });
 
+    // P3-3: Terminal 'done' event from server — unambiguous stream end
+    es.addEventListener('done', () => {
+      closeSSE();
+      // If we haven't already handled 'complete', just close silently
+    });
+
+    // P3-3: Connection-level onerror — reconnect with cap
     es.onerror = () => {
-      // Connection closed — job may still be running, SSE just dropped.
-      // Don't set running=false here.
+      reconnectAttemptsRef.current += 1;
+
+      if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
+        console.warn('[SSE] Max reconnect attempts reached. Stopping.');
+        closeSSE();
+        setStreamLost(true);
+        // Don't set running=false here — the job may still be running on the server.
+        // Show the user a "stream lost" state instead.
+        addLog('error', 'Stream connection lost. Click reconnect or check the dashboard for results.');
+      }
+      // Otherwise EventSource will auto-retry (browser default behavior).
+      // We just count attempts.
     };
-  }, [addLog, addToast]);
+  }, [addLog, addToast, closeSSE]);
 
   /**
    * Start a new recovery run.
@@ -98,6 +130,7 @@ export function RecoveryProvider({ children }) {
     setResults(null);
     setRunning(true);
     setActiveNode(null);
+    setStreamLost(false);
     logCountRef.current = 0;
 
     let bodyPayload;
@@ -148,9 +181,22 @@ export function RecoveryProvider({ children }) {
   const reconnect = useCallback(() => {
     if (runId && running && !eventSourceRef.current) {
       addLog('info', 'Reconnecting to recovery stream...');
+      setStreamLost(false);
+      reconnectAttemptsRef.current = 0;
       connectSSE(runId, logCountRef.current);
     }
   }, [runId, running, addLog, connectSSE]);
+
+  /**
+   * Manual reconnect for when stream is lost
+   */
+  const manualReconnect = useCallback(() => {
+    if (runId) {
+      setStreamLost(false);
+      reconnectAttemptsRef.current = 0;
+      connectSSE(runId, logCountRef.current);
+    }
+  }, [runId, connectSSE]);
 
   /**
    * Check for an existing running job on server (page refresh scenario).
@@ -173,12 +219,8 @@ export function RecoveryProvider({ children }) {
 
   // Clean up SSE on full app unmount
   useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-    };
-  }, []);
+    return () => closeSSE();
+  }, [closeSSE]);
 
   const value = {
     runId,
@@ -187,8 +229,10 @@ export function RecoveryProvider({ children }) {
     done,
     results,
     activeNode,
+    streamLost,
     startRecovery,
     reconnect,
+    manualReconnect,
     checkExistingJob,
   };
 

@@ -19,7 +19,7 @@ async function runWithFallback(operationFn) {
 
   for (let i = 0; i < keys.length; i++) {
     const llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-3.5-flash',
+      model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
       apiKey: keys[i],
       temperature: 0.2,
       maxRetries: 0 // Fail fast on rate limit so we can try the next key!

@@ -59,7 +59,10 @@ Rules:
       },
     };
   } catch (err) {
-    console.error("LLM Error:", err.message);
+    console.warn('\n⚠️  [DIAGNOSE FALLBACK] LLM call failed — using hardcoded fallback diagnosis!');
+    console.warn('    Error:', err.message);
+    console.warn('    Transaction:', state.transactionId);
+    console.warn('    This means the AI is NOT making real decisions.\n');
     const fallback = {
       root_cause: `Payment failed due to ${transaction.failure_reason}`,
       is_retryable: !["mandate_revoked", "invoice_overdue_60"].includes(transaction.failure_reason),

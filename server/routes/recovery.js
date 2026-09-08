@@ -82,8 +82,9 @@ router.get("/stream/:runId", async (req, res) => {
     );
   }
 
-  // If job is already done, close immediately after replaying
+  // If job is already done, emit a terminal 'done' event then close
   if (job.status !== "running") {
+    res.write(`event: done\ndata: {"status":"${job.status}"}\n\n`);
     return res.end();
   }
 
