@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { X, Send, Bot, User, Zap, Database, Search, BarChart3, Activity, CreditCard, Brain, Trash2, Sparkles } from 'lucide-react';
+import { authHeaders, API_BASE_URL } from '../utils/api';
 
 const TOOL_ICONS = {
   chart: BarChart3,
@@ -86,10 +87,10 @@ export default function RecoverBot() {
     setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
     try {
-      const API_BASE = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL + '/api' : '/api';
+      const API_BASE = API_BASE_URL;
       const res = await fetch(API_BASE + '/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           message: userMessage,
           chat_history: newMessages.filter(m => m.content).slice(-10),
