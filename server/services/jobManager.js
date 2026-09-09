@@ -51,13 +51,13 @@ class JobManager {
       if (transactions.length === 0) {
         if (transactionId) {
           transactions = await queryAll(
-            `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue')`,
+            `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue', 'recovery_sent')`,
             [transactionId]
           );
         } else {
           transactions = await queryAll(
             `SELECT * FROM transactions
-             WHERE status IN ('failed', 'abandoned', 'overdue')
+             WHERE status IN ('failed', 'abandoned', 'overdue', 'recovery_sent')
              AND attempt_count < max_attempts LIMIT ?`,
             [limit]
           );
@@ -89,12 +89,15 @@ class JobManager {
 
         try {
           let finalState = null;
-          const stream = await graph.stream(
-            { transactionId: txn.id, runId: job.runId },
-            { streamMode: "updates" }
-          );
+          // Per-transaction timeout: if a single txn takes > 45s, skip it
+          const txnResult = await Promise.race([
+            (async () => {
+              const stream = await graph.stream(
+                { transactionId: txn.id, runId: job.runId },
+                { streamMode: "updates" }
+              );
 
-          for await (const chunk of stream) {
+              for await (const chunk of stream) {
             const nodeName = Object.keys(chunk)[0];
             const nodeData = chunk[nodeName];
 
@@ -108,7 +111,14 @@ class JobManager {
               await new Promise((r) => setTimeout(r, 1200));
             }
             finalState = { ...finalState, ...nodeData };
-          }
+              }
+              return finalState;
+            })(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Transaction processing timeout (45s)')), 45000)
+            ),
+          ]);
+          finalState = txnResult;
 
           const isSuccess = finalState?.recoveryResult === "success";
           if (isSuccess) totalRecovered += txn.amount;

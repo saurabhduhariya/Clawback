@@ -36,6 +36,7 @@ export function RecoveryProvider({ children }) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+    if (pollerRef.current) { clearInterval(pollerRef.current); pollerRef.current = null; }
     reconnectAttemptsRef.current = 0;
   }, []);
 
@@ -43,10 +44,41 @@ export function RecoveryProvider({ children }) {
    * Connect (or reconnect) to the SSE stream for a given runId.
    * Uses lastIndex to replay any missed logs since disconnection.
    */
+  // Polling fallback: if SSE misses the 'complete' event, this catches it
+  const pollerRef = useRef(null);
+
+  const startPoller = useCallback((jobRunId) => {
+    if (pollerRef.current) clearInterval(pollerRef.current);
+    pollerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/recovery/status/${jobRunId}`, { headers: authHeaders() });
+        const data = await res.json();
+        if (data.status === 'completed' || data.status === 'error') {
+          clearInterval(pollerRef.current);
+          pollerRef.current = null;
+          // If the SSE never delivered 'complete', force-finish the UI
+          setRunning(prev => {
+            if (prev) {
+              addLog('success', data.summary
+                ? `Recovery complete! Processed ${data.summary.totalProcessed || 0} transactions. Recovered INR ${((data.summary.totalRecovered || 0) / 100).toLocaleString('en-IN')} (${data.summary.recoveryRate || 0}% rate)`
+                : 'Recovery completed.');
+              setResults(data.summary || data.results || null);
+              setDone(true);
+              setActiveNode(null);
+              closeSSE();
+            }
+            return false;
+          });
+        }
+      } catch { /* ignore polling errors */ }
+    }, 8000);
+  }, [addLog, closeSSE]);
+
   const connectSSE = useCallback((jobRunId, lastIndex = 0) => {
     closeSSE();
     setStreamLost(false);
     reconnectAttemptsRef.current = 0;
+    startPoller(jobRunId); // Start polling fallback alongside SSE
 
     const es = new EventSource(
       withApiKey(`${API_BASE}/recovery/stream/${jobRunId}?lastIndex=${lastIndex}`)
@@ -82,6 +114,7 @@ export function RecoveryProvider({ children }) {
     });
 
     es.addEventListener('complete', (e) => {
+      if (pollerRef.current) { clearInterval(pollerRef.current); pollerRef.current = null; }
       const d = JSON.parse(e.data);
       addLog('success', `Recovery complete! Processed ${d.totalProcessed || 0} transactions. Recovered INR ${((d.totalRecovered || 0) / 100).toLocaleString('en-IN')} (${d.recoveryRate || 0}% rate)`);
       
@@ -162,6 +195,8 @@ export function RecoveryProvider({ children }) {
       if (!data.runId) {
         addLog('info', data.message || 'No transactions to recover');
         setRunning(false);
+        setDone(true);
+        setActiveNode(null);
         return;
       }
 

@@ -48,7 +48,13 @@ Rules:
 
   try {
     const structuredLlm = getStructuredLlm(diagnosisSchema);
-    const diagnosis = await structuredLlm.invoke(prompt);
+    // Timeout guard: if Gemini hangs > 20s, fall through to fallback
+    const diagnosis = await Promise.race([
+      structuredLlm.invoke(prompt),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('LLM timeout after 20s')), 20000)
+      ),
+    ]);
 
     return {
       diagnosis,

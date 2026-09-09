@@ -21,13 +21,13 @@ router.post("/start", async (req, res) => {
     let transactions = [];
     if (transactionId) {
       transactions = await queryAll(
-        `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue')`,
+        `SELECT * FROM transactions WHERE id = ? AND status IN ('failed', 'abandoned', 'overdue', 'recovery_sent')`,
         [transactionId]
       );
     } else {
       transactions = await queryAll(
         `SELECT * FROM transactions
-         WHERE status IN ('failed', 'abandoned', 'overdue')
+         WHERE status IN ('failed', 'abandoned', 'overdue', 'recovery_sent')
          AND attempt_count < max_attempts LIMIT ?`,
         [limit]
       );
