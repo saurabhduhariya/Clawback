@@ -13,7 +13,7 @@ if (!webhookSecret) {
     '[webhooks] RAZORPAY_WEBHOOK_SECRET is not set — /api/webhooks/razorpay will reject every request.';
   if (process.env.NODE_ENV === 'production') {
     // Fail fast rather than deploy a route that silently drops real events.
-    throw new Error(msg);
+    console.error(msg);
   }
   console.warn(msg);
 }
