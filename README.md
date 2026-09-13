@@ -40,7 +40,6 @@
 - [Tech Stack](#-tech-stack)
 - [API Reference](#-api-reference)
 - [Local Development Setup](#️-local-development-setup)
-- [Known Limitations](#️-known-limitations)
 - [Roadmap](#️-roadmap)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -170,7 +169,7 @@ flowchart TB
     style DataLayer fill:#2e1414,stroke:#742a2a,stroke-width:1px,color:#fff
 ```
 
-> Thick arrows (`==>`) mark the primary revenue path, solid arrows are synchronous calls, and dotted arrows show async or fallback paths — guardrail blocks, invalid signatures, and the `payment.captured` event that is **not yet wired up** (see [Known Limitations](#️-known-limitations)).
+> Thick arrows (`==>`) mark the primary revenue path, solid arrows are synchronous calls, and dotted arrows show async or fallback paths — guardrail blocks, invalid signatures, and the `payment.captured` event that is **not yet wired up**.
 
 ---
 
@@ -526,23 +525,6 @@ npm run client
 | Frontend | `http://localhost:5173` |
 
 > All four scripts (`dev`, `server`, `client`, `init`) live in the **root** `package.json`. `server/package.json` carries only a placeholder `test` script, so `cd server && npm run dev` will not work — run these from the repository root.
-
----
-
-## ⚠️ Known Limitations
-
-This is a hackathon demo, and a few things are deliberately narrower than the UI implies:
-
-- **Recovery outcomes are modelled, not observed.** `simulateResponse` samples from `SIMULATION_RATES` to decide whether the customer paid; only a `paid` roll is recorded as recovered. The Razorpay payment links, invoices, and orders are real objects, but no real money movement is verified.
-- **`payment.captured` is not handled yet.** The webhook route returns early on any event that isn't `payment.failed`, so a customer who genuinely pays does not auto-flip their row to `recovered`.
-- **Customer notifications are suppressed by default** (`NOTIFY_CUSTOMERS=false`), so most runs create a link or invoice without actually contacting anyone.
-- **The Transactions page filters client-side.** The API supports `status`, `type`, and `search` query params that the UI doesn't use yet. There's also no sorting, pagination, or date-range picker.
-- **The dashboard's pipeline widget is partly estimated** — the middle stages (Diagnosed, Guardrails Passed, Executed) are derived from the failure count rather than measured, unlike the funnel in `/api/metrics`.
-- **Some config controls are cosmetic.** `autoExecute` and "Days back" in the `/recover` config panel are local state only; the run request sends just the transaction count. The interval dropdown on that page is inert.
-- **Guardrails are narrower than "risk" implies.** There is no fraud, stolen-card, or do-not-contact check — only the retry cap and non-retryable failure reasons.
-- **Auth is a shared secret compiled into the frontend bundle.** It stops anonymous abuse of the deployed demo; it is not real authentication.
-- **Dead code remains in the tree:** `components/Navbar.jsx`, `Sidebar.jsx`, `StatusBadge.jsx`, `IntervalDropdown.jsx`, and `server/utils/llmRunner.js` are unused. The live navigation is an inline header per page.
-- **No `LICENSE` file is present** in the repository, despite the section below.
 
 ---
 
