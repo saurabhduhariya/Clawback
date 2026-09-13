@@ -40,7 +40,8 @@
 - [Tech Stack](#-tech-stack)
 - [API Reference](#-api-reference)
 - [Local Development Setup](#️-local-development-setup)
-- [Roadmap](#-roadmap)
+- [Known Limitations](#️-known-limitations)
+- [Roadmap](#️-roadmap)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -50,9 +51,9 @@
 
 **Clawback** is a powerful, autonomous revenue recovery platform designed specifically for the Razorpay ecosystem. It continuously monitors Razorpay webhooks for failed transactions — abandoned checkouts, card declines, insufficient funds, timeouts — and turns them into recoverable revenue instead of write-offs.
 
-Instead of treating every failure the same way, Clawback uses a **LangGraph + Google Gemini AI agent** to categorize the failure, evaluate the customer's intent, and autonomously execute the best recovery strategy — such as generating a fresh payment link and dispatching a highly personalized email reminder via Resend.
+Instead of treating every failure the same way, Clawback uses a **LangGraph + Google Gemini AI agent** to score the risk, diagnose the root cause, and autonomously execute the best recovery strategy — creating a real Razorpay payment link or invoice, retrying the charge, escalating to a human, or marking the transaction unrecoverable.
 
-> 💡 **In short:** a failed payment comes in → the AI decides if it's safe and worth recovering → if so, it acts on its own, end to end, with no manual intervention required.
+> 💡 **In short:** a failed payment comes in → the AI scores and diagnoses it → guardrails decide if it's safe to act → if so, it executes the recovery on its own, end to end, with no manual intervention required.
 
 ---
 
@@ -60,11 +61,19 @@ Instead of treating every failure the same way, Clawback uses a **LangGraph + Go
 
 | | |
 |---|---|
-| 🧠 **Cognitive AI Recovery** | Understands *why* a payment failed and writes context-aware emails (e.g., suggesting a different card for `insufficient_funds`). |
-| 🛡️ **Intelligent Guardrails** | Automatically blocks recovery attempts on high-risk failures (suspected fraud, stolen cards) to protect merchant account standing. |
-| ⚡ **Autonomous Execution** | Generates Razorpay Payment Links and sends recovery emails via Resend — no manual intervention needed. |
-| 📊 **Glassmorphism Dashboard** | A premium, dark-mode React dashboard for monitoring at-risk revenue, live agent logs, and manual overrides. |
-| 🔄 **Full Loop Tracking** | Listens for `payment.captured` webhooks to automatically mark revenue as successfully recovered. |
+| 🧠 **Cognitive AI Recovery** | Gemini returns a structured diagnosis — root cause, retryability, urgency, recommended action and preferred channel — rather than a rigid if/else ladder. |
+| 🛡️ **Layered Guardrails** | Blocks any attempt beyond the retry cap (`MAX_RECOVERY_ATTEMPTS = 3`), and blocks non-retryable failure reasons (`mandate_revoked`, `invoice_overdue_60`). Every block maps to a terminal status so a transaction can't be re-selected on every future run. |
+| ⚡ **Autonomous Execution** | Places real Razorpay API calls — `POST /v1/payment_links`, `/v1/invoices`, `/v1/orders` — with unique per-attempt reference IDs so retries don't collide. |
+| 📊 **Glassmorphism Dashboard** | A premium, dark-mode React dashboard for monitoring at-risk revenue, recovery analytics, and live agent logs. |
+| 🔄 **Full Audit Ledger** | Every attempt is written to `recovery_actions` — chosen action, guardrail result, exact Razorpay API called, response, and outcome — powering the audit trail and the action-effectiveness charts. |
+| 🤖 **RecoverBot — AI Co-pilot** | A floating chat agent on every non-landing page. Streams tokens, shows live tool-call indicators, and can query metrics, search/diagnose transactions, run guarded read-only SQL, trigger a recovery run, and mint a real payment link. |
+| 🕸️ **Live Pipeline Visualizer** | `/recover` renders the 8-node LangGraph DAG with React Flow and lights up each node as it executes, streamed over SSE. |
+| 🔍 **Forensic Audit Trail** | A per-transaction timeline with the AI diagnosis and the raw Razorpay request/response JSON, inspectable and copyable. |
+| 🎯 **Manual Override** | A per-row **Recover** button re-runs the agent for a single transaction, deep-linking into the live visualizer. |
+| 🛩️ **Auto-Pilot Scheduler** | Toggle autonomous runs from the dashboard and pick the cadence (2h / 6h / 12h / 24h). The interval is persisted and skipped if a run is already in flight. |
+| 📤 **CSV Export** | One-click export of the full recovery ledger — RFC 4180-quoted, with formula-injection guards and a UTF-8 BOM so Excel renders ₹ correctly. |
+| 🧪 **Live Test Injection** | An "Add Live Test" modal injects a mock failed payment, with a failure-reason selector that maps to distinct agent behaviour. |
+| 🔔 **Toast Notifications** | Run outcomes surface as bottom-right toasts — recovered amount, nothing-recovered, or stream errors. |
 
 ---
 
@@ -79,6 +88,18 @@ Instead of treating every failure the same way, Clawback uses a **LangGraph + Go
   <img src="assets/screenshots/pipeline_v2.png" alt="LangGraph AI Pipeline" width="49%" style="border-radius: 8px;" />
 </div>
 
+### 🗺️ Application Routes
+
+| Path | Page | What it does |
+|---|---|---|
+| `/` | `Landing` | Marketing page. Pulls live metrics for the hero stats and preview chart, falling back to static values. |
+| `/dashboard` | `Dashboard` | KPI cards, analytics charts, the pipeline funnel widget, and the Auto-Pilot / CSV controls. |
+| `/transactions` | `Transactions` | Searchable recovery ledger with risk badges, per-row **Recover**, and the **Add Live Test** modal. |
+| `/recover` | `RecoveryRun` | The live 8-node pipeline visualizer plus the streaming agent log. |
+| `/transactions/:transactionId` | `AuditTrail` | Per-transaction forensic view: details, AI diagnosis, recovery timeline, raw JSON. |
+
+> The floating **RecoverBot** is mounted on every route except `/` (see `App.jsx`), and route changes animate through `<AnimatePresence>`.
+
 ---
 
 ## 🏗️ System Architecture & Data Pipeline
@@ -89,12 +110,12 @@ Clawback is built on a modern, decoupled event-driven architecture designed to s
 flowchart TB
     Customer([" Customer "])
     RZP{{" Razorpay\nAPI & Webhooks "}}
-    Resend{{" Resend\nEmail API "}}
 
     subgraph ClientLayer[" CLIENT — Vercel "]
         direction TB
         UI["React / Vite Dashboard"]
         Charts["Analytics & Live Agent Logs"]
+        Bot["RecoverBot\nAI Co-pilot"]
         UI --- Charts
     end
 
@@ -102,38 +123,35 @@ flowchart TB
         direction TB
         WebhookAPI["Webhook Receiver\n/api/webhooks"]
         Verify{{"Verify\nSignature"}}
-        Scheduler["Cron Scheduler"]
-        AgentEngine["LangGraph\nAgent Engine"]
-        LinkGen["Payment Link\nGenerator"]
-        EmailGen["Email\nGenerator"]
+        Scheduler["Cron Scheduler\nAuto-Pilot"]
+        AgentEngine["LangGraph\n8-Node Agent"]
+        Execute["Execute\nRazorpay Action"]
     end
 
     subgraph DataLayer[" DATABASE — Supabase "]
-        DB[("PostgreSQL\ntransactions · metrics")]
+        DB[("PostgreSQL\ntransactions · recovery_actions\nrecovery_runs · webhook_events")]
     end
 
     Customer == "Payment fails" ==> RZP
     RZP -- "payment.failed webhook" --> WebhookAPI
     WebhookAPI --> Verify
-    Verify -- "valid" --> DB
-    Verify -. "invalid → 401" .-> WebhookAPI
+    Verify -- "valid + deduped" --> DB
+    Verify -. "invalid → 400" .-> WebhookAPI
 
     Scheduler == "trigger recovery run" ==> AgentEngine
-    DB -. "fetch abandoned txns" .-> AgentEngine
+    DB -. "fetch recoverable txns" .-> AgentEngine
 
-    AgentEngine -- "safe + recoverable" --> LinkGen
-    AgentEngine -. "blocked by guardrails" .-> DB
-    LinkGen -- "create payment link" --> RZP
-    RZP -. "returns checkout URL" .-> LinkGen
-    LinkGen --> EmailGen
-    AgentEngine -- "email-only strategy" --> EmailGen
+    AgentEngine -- "risk score + guardrails" --> Execute
+    AgentEngine -. "blocked → terminal status" .-> DB
+    Execute == "payment link · invoice · order" ==> RZP
+    RZP -. "entity id + short_url" .-> Execute
+    Execute --> DB
 
-    EmailGen == "dispatch" ==> Resend
-    Resend -- "recovery email" --> Customer
-    Customer -. "completes payment" .-> RZP
-    RZP -. "payment.captured webhook" .-> WebhookAPI
+    DB == "live analytics + SSE logs" ==> UI
+    UI <--> Bot
+    Bot -. "read-only tools" .-> DB
 
-    DB == "live analytics" ==> UI
+    RZP -. "payment.captured — not yet handled" .-> WebhookAPI
 
     classDef actor fill:#1a202c,stroke:#4a5568,color:#f7fafc,font-weight:bold
     classDef client fill:#2b6cb0,stroke:#1a4971,color:#fff,font-weight:bold
@@ -141,9 +159,9 @@ flowchart TB
     classDef gate fill:#975a16,stroke:#7b341e,color:#fff,font-weight:bold
     classDef data fill:#742a2a,stroke:#521b1b,color:#fff,font-weight:bold
 
-    class Customer,RZP,Resend actor
-    class UI,Charts client
-    class WebhookAPI,Scheduler,AgentEngine,LinkGen,EmailGen server
+    class Customer,RZP actor
+    class UI,Charts,Bot client
+    class WebhookAPI,Scheduler,AgentEngine,Execute server
     class Verify gate
     class DB data
 
@@ -152,63 +170,90 @@ flowchart TB
     style DataLayer fill:#2e1414,stroke:#742a2a,stroke-width:1px,color:#fff
 ```
 
-> Numbered arrows (`→ 6️⃣`) trace the happy path from a failed payment to a recovered one; dotted arrows show async/fallback paths (guardrail blocks, invalid signatures, capture confirmation).
+> Thick arrows (`==>`) mark the primary revenue path, solid arrows are synchronous calls, and dotted arrows show async or fallback paths — guardrail blocks, invalid signatures, and the `payment.captured` event that is **not yet wired up** (see [Known Limitations](#️-known-limitations)).
 
 ---
 
 ## 🤖 LangGraph AI Recovery Pipeline
 
-The core intelligence of Clawback is powered by a **LangGraph State Machine** using Google Gemini. Instead of rigid if/else statements, the agent autonomously navigates a graph of tools to recover revenue safely.
+The core intelligence of Clawback is powered by a **LangGraph State Machine** using Google Gemini. The agent walks an 8-node graph — wired in `server/graph/recoveryGraph.js` — with exactly one conditional edge: the guardrail verdict.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> InitializeState : Cron Trigger
+    [*] --> detect : Scheduler · Webhook · Chat · Manual
 
-    state InitializeState {
-        direction LR
-        FetchTxn[Fetch Transaction] --> LoadHistory[Load Customer History]
-    }
-
-    InitializeState --> GuardrailsNode
-
-    state GuardrailsNode {
+    state detect {
         direction TB
-        CheckFraud[Fraud Check]
-        CheckLimits[Retry Limits]
-        CheckDNC[Do Not Contact List]
+        FetchTxn : Load transaction row
+        LoadAttempts : Load past attempts
     }
 
-    GuardrailsNode --> DecisionNode : Passes Guardrails
-    GuardrailsNode --> [*] : Fails (Mark Unrecoverable)
-
-    state DecisionNode {
-        AnalyzeIntent[Gemini: Analyze Failure Intent]
+    state calculateRiskScore {
+        direction TB
+        F1 : Past failures (0-30)
+        F2 : Amount at risk (0-25)
+        F3 : Failure severity (0-25)
+        F4 : Age of failure (0-20)
     }
 
-    DecisionNode --> GenerateLinkNode : Action = Generate Link
-    DecisionNode --> DraftEmailNode : Action = Email Only
-
-    GenerateLinkNode --> DraftEmailNode : Append Link to Context
-
-    state DraftEmailNode {
-        GeminiDraft[Gemini: Draft Contextual Email]
+    state diagnose {
+        direction LR
+        Gemini : Gemini 3.5 Flash structured diagnosis
     }
 
-    DraftEmailNode --> DispatchNode
-
-    state DispatchNode {
-        SendEmail[Trigger Resend API]
-        UpdateDB[Update Txn Status]
+    state checkGuardrails {
+        direction TB
+        Rule1 : Max attempts reached (3)
+        Rule2 : Diagnosed unrecoverable
     }
 
-    DispatchNode --> [*] : End Recovery Run
+    state pickStrategy {
+        direction TB
+        NonRetryable : Blocked failure reasons
+        LlmChoice : Gemini recommendation
+        Matrix : Strategy matrix fallback
+    }
+
+    state execute {
+        direction TB
+        Link : Razorpay payment link
+        Invoice : Razorpay invoice
+        Order : Razorpay order retry
+        Recorded : Reminder / escalation (recorded only)
+    }
+
+    state simulateResponse {
+        direction TB
+        ApiFail : API failure becomes failed
+        Modelled : Model customer response from SIMULATION_RATES
+    }
+
+    state updateState {
+        direction TB
+        WriteTxn : Update transaction status
+        WriteAudit : Insert recovery_actions row
+    }
+
+    detect --> calculateRiskScore
+    calculateRiskScore --> diagnose
+    diagnose --> checkGuardrails
+
+    checkGuardrails --> pickStrategy : allowed
+    checkGuardrails --> updateState : blocked
+
+    pickStrategy --> execute
+    execute --> simulateResponse
+    simulateResponse --> updateState
+    updateState --> [*]
 ```
+
+> The `checkGuardrails → updateState` edge is the only branch in the graph. A blocked transaction skips strategy selection and execution entirely and lands in a terminal status (`unrecoverable`).
 
 ---
 
 ## 🔁 Sequence Diagram — One Transaction's Lifecycle
 
-This traces a **single failed payment** end-to-end — from the initial webhook through AI analysis to either a recovered sale or a safely blocked attempt.
+This traces a **single failed payment** end-to-end — from the initial webhook through AI analysis to either a dispatched recovery or a safely blocked attempt.
 
 ```mermaid
 sequenceDiagram
@@ -220,51 +265,47 @@ sequenceDiagram
     participant Cron as Scheduler
     participant Agent as LangGraph Agent
     participant Gemini as Gemini
-    participant Pay as Payment Service
-    participant Mail as Resend
+    participant Sim as Outcome Model
 
     Cust->>RZP: Attempts payment
     RZP--xCust: Payment declined
     RZP->>API: webhook: payment.failed
-    API->>API: Verify signature
+    API->>API: Verify signature (HMAC over raw bytes)
+    API->>DB: Claim event id (dedupe)
     API->>DB: INSERT transaction (status: failed)
     API-->>RZP: 200 OK
+    API->>Agent: Invoke graph (fire and forget)
 
-    Note over Cron,Agent: Runs on a fixed interval
-    Cron->>Agent: Trigger recovery run
-    Agent->>DB: SELECT abandoned transactions
-    DB-->>Agent: Transaction + customer history
+    Note over Cron,Agent: Runs on the configured Auto-Pilot interval
+    Cron->>Agent: Trigger batch recovery run
+    Agent->>DB: SELECT recoverable transactions
+    DB-->>Agent: Transaction + attempt history
 
-    Agent->>Agent: Run guardrails (fraud, retry limit, DNC list)
+    Agent->>Agent: detect → calculateRiskScore
+    Agent->>Gemini: Structured diagnosis (root cause, action, channel)
+    Gemini-->>Agent: Diagnosis JSON
+
+    Agent->>Agent: checkGuardrails (max attempts, unrecoverable)
 
     alt Guardrails fail
         Agent->>DB: UPDATE status = 'unrecoverable'
-        Note right of Agent: Run ends — customer never contacted
+        Note right of Agent: Terminal — never re-selected
     else Guardrails pass
-        Agent->>Gemini: Classify failure reason + intent
-        Gemini-->>Agent: Strategy: link + email / email only
-
-        opt Strategy needs a fresh link
-            Agent->>Pay: Create payment link
-            Pay->>RZP: POST /payment_links
-            RZP-->>Pay: Checkout URL
-            Pay-->>Agent: Link created
+        Agent->>Agent: pickStrategy
+        opt Action needs a Razorpay entity
+            Agent->>RZP: POST /v1/payment_links · /invoices · /orders
+            RZP-->>Agent: Entity id + short_url
         end
-
-        Agent->>Gemini: Draft personalized recovery email
-        Gemini-->>Agent: Email subject + body
-
-        Agent->>Mail: Send recovery email
-        Mail->>Cust: 📩 "Complete your payment"
-        Agent->>DB: UPDATE status = 'recovery_sent'
-
-        Cust->>RZP: Clicks link, completes payment
-        RZP->>API: webhook: payment.captured
-        API->>DB: UPDATE status = 'recovered'
+        Agent->>Sim: Model whether the customer pays
+        Sim-->>Agent: paid / ignored / failed_again
+        Agent->>DB: UPDATE status + INSERT recovery_actions
     end
+
+    Note over Cust,RZP: payment.captured is not yet handled
+    Note over Cust,RZP: So a real payment does not auto-flip the row to recovered
 ```
 
-> The `alt` / `opt` blocks mirror the guardrail branch and the "link vs. email-only" decision from the state diagram above — this view just shows the same logic as a chronological, cross-service conversation.
+> The `alt` / `opt` blocks mirror the guardrail branch and the "does this action need a Razorpay entity?" decision from the state diagram above — this view just shows the same logic as a chronological, cross-service conversation.
 
 ---
 
@@ -277,29 +318,43 @@ razorpay-revenue-recovery/
 ├── client/                      # Frontend React application (Vite)
 │   ├── public/                  # Static assets (favicons, etc.)
 │   ├── src/
-│   │   ├── components/          # Reusable UI components (Sidebar, Navbar, Badges)
-│   │   ├── context/              # React Context providers (RecoveryContext)
-│   │   ├── pages/                # Main dashboard views (Dashboard, Transactions)
-│   │   ├── utils/                 # API helpers and formatting utilities
-│   │   ├── App.jsx               # Main React router setup
-│   │   └── index.css             # Global CSS (Glassmorphism design system)
-│   └── vercel.json               # Vercel rewrite rules for SPA routing
+│   │   ├── components/          # RecoverBot, GlassDropdown, PageTransition
+│   │   ├── context/             # RecoveryContext (SSE + job state), ToastContext
+│   │   ├── pages/               # Landing, Dashboard, Transactions, RecoveryRun, AuditTrail
+│   │   ├── utils/               # api.js — endpoint client + auth headers
+│   │   ├── App.jsx              # Router + provider stack (Toast > Recovery)
+│   │   └── index.css            # Tailwind v4 entry + @theme design tokens
+│   └── vercel.json              # Vercel rewrite rules for SPA routing
 │
 ├── server/                      # Backend Node.js application (Express)
+│   ├── config/
+│   │   ├── gemini.js            # LLM instances, key rotation, structured output
+│   │   ├── razorpay.js          # Razorpay SDK client
+│   │   ├── constants.js         # Guardrails, statuses, strategy matrix, rates
+│   │   └── notifyPolicy.js      # Whether a real SMS/email may be sent
 │   ├── db/
-│   │   ├── connection.js        # Supabase PostgreSQL pooling
-│   │   ├── setup.js             # Database table creation script
+│   │   ├── connection.js        # PostgreSQL pooling (pg)
+│   │   ├── setup.js             # Table creation script
+│   │   ├── migrate.js           # Incremental migrations (webhook_events, run source)
 │   │   └── seed.js              # Mock data seeder
 │   ├── graph/
-│   │   ├── agent.js             # Core LangGraph AI execution flow
-│   │   └── nodes/               # Individual agent steps (guardrails, generation)
-│   ├── routes/                  # Express API endpoints
+│   │   ├── recoveryGraph.js     # StateGraph wiring — 8 nodes, 1 conditional edge
+│   │   ├── state.js             # Annotation.Root state channels
+│   │   └── nodes/               # detect, riskScore, diagnose, checkGuardrails,
+│   │                            #   pickStrategy, execute, simulateResponse, updateState
+│   ├── middleware/
+│   │   ├── auth.js              # Shared-secret API key (header or query param)
+│   │   └── rateLimit.js         # Dependency-free fixed-window limiter
+│   ├── routes/                  # transactions, recovery, metrics, audit, export, chat, webhooks
 │   ├── services/
-│   │   ├── emailService.js      # Resend integration
-│   │   ├── paymentService.js    # Razorpay Payment Link generation
-│   │   └── scheduler.js         # Cron job for automated recovery runs
+│   │   ├── jobManager.js        # In-memory job store + SSE fan-out with replay
+│   │   ├── scheduler.js         # node-cron Auto-Pilot + /status, /toggle, /trigger
+│   │   ├── runRecord.js         # Ad-hoc recovery_runs rows (webhook / chat)
+│   │   └── readOnlySql.js       # Guarded read-only SQL for the chat tool
 │   ├── index.js                 # Express server entry point
 │   └── .env                     # Environment variables (Backend)
+│
+└── package.json                 # Root scripts: dev, server, client, init, seed
 ```
 
 ---
@@ -307,31 +362,58 @@ razorpay-revenue-recovery/
 ## 🚀 Tech Stack
 
 ### 🖥️ Frontend
-- **React 18** (Vite)
-- **CSS:** Vanilla CSS with custom CSS variables, flexbox/grid, and backdrop-filters for a glassmorphic aesthetic
+- **React 19** (Vite 8)
+- **Routing:** React Router v7
+- **Styling:** Tailwind CSS v4 — `@theme` design tokens plus custom CSS layers for the glassmorphic aesthetic
+- **Charts:** Recharts 3 (area, bar, donut)
+- **Graph Visualization:** `@xyflow/react` v12 (React Flow)
+- **Animation:** Framer Motion
+- **Markdown:** `react-markdown` + `remark-gfm` (RecoverBot responses)
 - **Icons:** Lucide React
 - **Hosting:** Vercel
 
 ### ⚙️ Backend
-- **Node.js + Express**
-- **Database:** PostgreSQL (hosted on Supabase) with `pg` connection pooling
-- **AI Framework:** LangChain / LangGraph JS
-- **LLM:** Google Gemini 1.5 Pro / Flash
-- **Integrations:** Razorpay API, Resend Email API
+- **Node.js + Express 5**
+- **Database:** PostgreSQL (hosted on Supabase) via `pg` connection pooling
+- **AI Framework:** LangChain / LangGraph JS (`@langchain/langgraph`)
+- **LLM:** `gemini-3.5-flash` via `@langchain/google-genai`, with multi-key rotation and structured-output fallbacks
+- **Scheduling:** `node-cron`
+- **Validation:** `zod` (LLM tool + diagnosis schemas)
+- **Integrations:** Razorpay API (payment links, invoices, orders, webhooks)
+- **Security:** Shared-secret API key, CORS allowlist, dependency-free fixed-window rate limiting
 - **Hosting:** Render
 
 ---
 
 ## 🔌 API Reference
 
-A quick reference for the core backend endpoints exposed by the Express server:
+A quick reference for the backend endpoints exposed by the Express server:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET`  | `/api/transactions` | Returns the list of tracked transactions (failed, recovered, unrecoverable) with filtering support. |
-| `GET`  | `/api/metrics` | Returns aggregate dashboard metrics — at-risk revenue, recovery rate, active recovery runs. |
-| `POST` | `/api/webhooks` | Receives and verifies incoming Razorpay webhook events (`payment.failed`, `payment.captured`). |
+| `GET`  | `/api/health` | Uptime probe. Unauthenticated by design. |
+| `GET`  | `/api/metrics` | Aggregate dashboard metrics — at-risk revenue, recovery rate, by-type / by-reason / by-action breakdowns, 14-day trend, and funnel data. |
+| `GET`  | `/api/audit/:transactionId` | Full audit trail for one transaction: the row plus its parsed `recovery_actions` timeline. |
+| `GET`  | `/api/transactions` | Tracked transactions, with server-side `status`, `type`, and `search` filters. |
+| `GET`  | `/api/transactions/summary` | Counts and totals grouped by status and by type. |
+| `GET`  | `/api/transactions/:id` | A single transaction by id. |
+| `POST` | `/api/transactions/mock` | Injects a mock failed transaction — powers the "Add Live Test" modal. |
+| `GET`  | `/api/export/csv` | Full recovery ledger as a CSV download. |
+| `POST` | `/api/recovery/start` | Starts a background batch run. Returns `{ runId, totalTransactions }`; `409` if a run is already in flight. |
+| `GET`  | `/api/recovery/stream/:runId` | **SSE** stream of live agent logs. `?lastIndex=N` replays missed events on reconnect. |
+| `GET`  | `/api/recovery/status/:runId` | JSON job status — the polling fallback when SSE drops. |
+| `GET`  | `/api/recovery/latest` | The most recent job, used to re-attach after a page refresh. |
+| `GET`  | `/api/recovery/runs` | All past recovery runs. |
+| `POST` | `/api/chat` | **SSE** stream for RecoverBot — token deltas plus `tool_start` / `tool_end` events. |
+| `GET`  | `/api/scheduler/status` | Auto-Pilot state: `enabled`, `intervalHours`, `nextRunTime`, `lastRunStats`. |
+| `POST` | `/api/scheduler/toggle` | Enables/disables Auto-Pilot and sets the interval — `{ enable, interval }`. |
+| `POST` | `/api/scheduler/trigger` | Forces a run now. Server-side only — no client caller yet. |
+| `POST` | `/api/webhooks/razorpay` | Razorpay webhook receiver (`payment.failed`). Authenticated by HMAC signature, not the API key. No client caller — it's called by Razorpay. |
 
+> **Authentication.** Mutating and PII endpoints (`/api/transactions`, `/api/export`, `/api/recovery`, `/api/chat`, `/api/scheduler`) require the shared secret, sent as either an `x-api-key` header or an `?api_key=` query param — the query form exists because `EventSource` and browser downloads can't set headers. `/api/metrics`, `/api/audit`, and `/api/health` stay open so the demo dashboard loads.
+>
+> **Rate limits.** 15 req/min on `/api/chat`, 10 req/min on `/api/recovery` and `/api/scheduler`, 240 req/min on read endpoints. All fixed-window, in-memory.
+>
 > ℹ️ For full request/response schemas, see the route handlers in `server/routes/`.
 
 ---
@@ -339,10 +421,9 @@ A quick reference for the core backend endpoints exposed by the Express server:
 ## 🛠️ Local Development Setup
 
 ### 1. Prerequisites
-- Node.js (v18 or higher)
+- Node.js v20.19+ (or v22.12+) — Vite 8 requires `^20.19.0 || >=22.12.0`
 - A Razorpay Test Mode account
 - A Supabase Project (PostgreSQL)
-- A Resend API Key
 - A Google Gemini API Key
 
 ### 2. Clone the Repository
@@ -353,6 +434,9 @@ cd razorpay-revenue-recovery
 
 ### 3. Install Dependencies
 ```bash
+# Root tooling (concurrently, used by the combined dev script)
+npm install
+
 # Install backend dependencies
 cd server
 npm install
@@ -371,8 +455,15 @@ Create a `.env` file inside the `server/` folder:
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `RAZORPAY_KEY_ID` | Razorpay test/live key ID |
 | `RAZORPAY_KEY_SECRET` | Razorpay test/live key secret |
-| `GEMINI_API_KEY` | Google Gemini API key |
-| `RESEND_API_KEY` | Resend API key for transactional email |
+| `RAZORPAY_WEBHOOK_SECRET` | Webhook signing secret. **Required** — `/api/webhooks/razorpay` rejects every request without it. |
+| `GEMINI_API_KEY` | Google Gemini API key. Comma-separate several to rotate between them. |
+| `GEMINI_MODEL` | Optional. Overrides the LLM (default `gemini-3.5-flash`). |
+| `API_KEY` | Shared secret for protected routes. Unset in dev = open with a warning; unset in production = `503`. |
+| `ALLOWED_ORIGINS` | Comma-separated browser origins allowed by CORS. |
+| `NOTIFY_CUSTOMERS` | `true` to actually SMS/email customers. **Defaults off** — see below. |
+| `NOTIFY_ALLOWLIST` | Optional comma list limiting who may be notified outside production. |
+| `RATE_LIMIT_DISABLED` | Set `true` to disable rate limiting during local load testing. |
+| `SQL_TOOL_TIMEOUT_MS` | Statement timeout for the chatbot's read-only SQL tool (default `3000`). |
 | `PORT` | Backend server port (default `3001`) |
 | `NODE_ENV` | `development` or `production` |
 
@@ -380,8 +471,11 @@ Create a `.env` file inside the `server/` folder:
 DATABASE_URL="postgres://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:6543/postgres"
 RAZORPAY_KEY_ID="rzp_test_xxxxxx"
 RAZORPAY_KEY_SECRET="xxxxxxxxxxxx"
+RAZORPAY_WEBHOOK_SECRET="your_webhook_secret"
 GEMINI_API_KEY="AIzaSy..."
-RESEND_API_KEY="re_xxxxxx"
+API_KEY="a-long-random-shared-secret"
+ALLOWED_ORIGINS="http://localhost:5173"
+NOTIFY_CUSTOMERS=false
 PORT=3001
 NODE_ENV="development"
 ```
@@ -389,30 +483,41 @@ NODE_ENV="development"
 Create a `.env` file inside the `client/` folder:
 
 ```env
-# Points the React app to the backend
-VITE_API_URL="http://localhost:3001"
+# Points the React app to the backend. Leave unset for local dev — Vite proxies /api to :3001.
+# VITE_API_URL="https://your-backend.onrender.com"
+
+# Must match the server's API_KEY. Compiled into the JS bundle, so treat it as a
+# drive-by shield rather than real authentication.
+VITE_API_KEY="a-long-random-shared-secret"
 ```
 
+> ⚠️ `NOTIFY_CUSTOMERS` is off by default because the seeded demo data contains fabricated contacts. Runs still create **real** Razorpay payment links and invoices — they just don't push SMS/email at anyone. Leave it `false` unless you own every address in your database.
+
 ### 5. Initialize the Database
-Run the init script from the `server` directory to automatically create the necessary PostgreSQL tables and seed them with realistic test data.
+Run the init script from the **repository root** to create the PostgreSQL tables and seed them with realistic test data.
 ```bash
-cd server
 npm run init
 ```
 
+> `npm run init` runs `setup-db` (create tables) followed by `seed`. Run `npm run setup-db` on its own, or `node db/migrate.js` from `server/`, to apply incremental migrations to an existing database.
+
 ### 6. Start the Servers
-You'll need two terminal windows to run the frontend and backend simultaneously.
+
+**Both at once** (from the repository root):
+```bash
+npm run dev
+```
+
+**Or in two terminals:**
 
 **Terminal 1 (Backend):**
 ```bash
-cd server
-npm run dev
+npm run server
 ```
 
 **Terminal 2 (Frontend):**
 ```bash
-cd client
-npm run dev
+npm run client
 ```
 
 | Service | URL |
@@ -420,10 +525,31 @@ npm run dev
 | Backend  | `http://localhost:3001` |
 | Frontend | `http://localhost:5173` |
 
+> All four scripts (`dev`, `server`, `client`, `init`) live in the **root** `package.json`. `server/package.json` carries only a placeholder `test` script, so `cd server && npm run dev` will not work — run these from the repository root.
+
+---
+
+## ⚠️ Known Limitations
+
+This is a hackathon demo, and a few things are deliberately narrower than the UI implies:
+
+- **Recovery outcomes are modelled, not observed.** `simulateResponse` samples from `SIMULATION_RATES` to decide whether the customer paid; only a `paid` roll is recorded as recovered. The Razorpay payment links, invoices, and orders are real objects, but no real money movement is verified.
+- **`payment.captured` is not handled yet.** The webhook route returns early on any event that isn't `payment.failed`, so a customer who genuinely pays does not auto-flip their row to `recovered`.
+- **Customer notifications are suppressed by default** (`NOTIFY_CUSTOMERS=false`), so most runs create a link or invoice without actually contacting anyone.
+- **The Transactions page filters client-side.** The API supports `status`, `type`, and `search` query params that the UI doesn't use yet. There's also no sorting, pagination, or date-range picker.
+- **The dashboard's pipeline widget is partly estimated** — the middle stages (Diagnosed, Guardrails Passed, Executed) are derived from the failure count rather than measured, unlike the funnel in `/api/metrics`.
+- **Some config controls are cosmetic.** `autoExecute` and "Days back" in the `/recover` config panel are local state only; the run request sends just the transaction count. The interval dropdown on that page is inert.
+- **Guardrails are narrower than "risk" implies.** There is no fraud, stolen-card, or do-not-contact check — only the retry cap and non-retryable failure reasons.
+- **Auth is a shared secret compiled into the frontend bundle.** It stops anonymous abuse of the deployed demo; it is not real authentication.
+- **Dead code remains in the tree:** `components/Navbar.jsx`, `Sidebar.jsx`, `StatusBadge.jsx`, `IntervalDropdown.jsx`, and `server/utils/llmRunner.js` are unused. The live navigation is an inline header per page.
+- **No `LICENSE` file is present** in the repository, despite the section below.
+
 ---
 
 ## 🗺️ Roadmap
 
+- [ ] Handle `payment.captured` webhooks to close the loop with real payments
+- [ ] Replace the modelled outcome with real payment confirmation
 - [ ] SMS / WhatsApp recovery channel alongside email
 - [ ] Configurable guardrail thresholds from the dashboard
 - [ ] A/B testing for recovery email templates
@@ -448,7 +574,7 @@ Please open an issue first for major changes to discuss what you'd like to chang
 
 ## 📜 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 <div align="center">
   <sub>Built with ❤️ for merchants losing revenue to preventable payment failures.</sub>
